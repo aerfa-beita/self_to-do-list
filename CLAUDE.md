@@ -10,10 +10,11 @@
 | 项目 | 内容 |
 |------|------|
 | **日期** | 2026-07-10 |
-| **做了什么** | Android 白屏修复、备忘录分类横滑、Tailscale SSH 配通 (IP: 100.72.219.103) |
+| **做了什么** | Android白屏修复、备忘录分类横滑(Q1)、Tailscale SSH配通、文档体系重构(精简CLAUDE.md+README完善)、Hook加强(备份评估+边界感+stop-check升级)、git commit |
 | **下一步** | Q2→Q3→Q4→Q5（见待完成） |
-| **踩坑** | `flutter clean` 会删 db（先备份）；中文路径 MSBuild 乱码；Android Gradle 用本地 zip + 梯子 |
-| **已知问题** | 子任务 hover 边框（2轮未修好） |
+| **踩坑** | `flutter clean` 删db需先备份；中文路径MSBuild乱码；Android Gradle用本地zip+梯子 |
+| **已知问题** | 子任务hover边框(2轮未修好)；手机SSH延迟高(走旧金山中转) |
+| **自我改进** | 文档靠催→stop-check自动检测；先做后答→边界感规则；hook不自审→强调检查为必做步骤 |
 
 ---
 
@@ -33,7 +34,7 @@
 
 | 批次 | 内容 |
 |------|------|
-| 7/10 | Android白屏修复、备忘录分类横滑 |
+| 7/10 | Android白屏修复、备忘录分类横滑、文档体系重构、Hook加强(备份+边界+stop-check) |
 | 7/09 | 打包上传、主题持久化、快捷键、批量操作、后台提醒、重复提醒等 12 篇 |
 
 > 删旧留新，旧文档索引见 `project-docs/INDEX.md`

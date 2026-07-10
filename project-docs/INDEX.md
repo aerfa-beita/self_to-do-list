@@ -1,6 +1,6 @@
 ﻿# to-do_list — 项目索引
 
-> 最后更新：2026-07-09
+> 最后更新：2026-07-10
 
 ---
 
@@ -63,3 +63,18 @@ UI → Service → Repository → DatabaseProvider → SQLite（单向依赖，�
 | settings | 键值存储（深色模式偏好） |
 
 当前 DB 版本：v17
+
+---
+
+## 构建产物
+
+| 平台 | 路径 | 大小 |
+|------|------|------|
+| Windows exe | build/windows/x64/runner/Release/todo_list.exe | ~32MB |
+| Android APK | build/app/outputs/apk/release/app-release.apk | 58.6MB |
+
+## 下次待办
+
+1. Android UI 适配（长按代替右键、底部导航）
+2. 子任务 hover 边框 bug
+3. GitHub push

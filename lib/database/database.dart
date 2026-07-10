@@ -19,8 +19,11 @@ class DatabaseProvider {
   }
 
   Future<Database> _initDatabase() async {
-    sqfliteFfiInit();
-    databaseFactory = databaseFactoryFfi;
+    // Android 用平台 channel，Windows 用 FFI
+    if (Platform.isWindows) {
+      sqfliteFfiInit();
+      databaseFactory = databaseFactoryFfi;
+    }
 
     final dbPath = await getDatabasesPath();
     final path = join(dbPath, 'todo_list.db');

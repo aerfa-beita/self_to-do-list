@@ -687,15 +687,17 @@ class MemoScreenState extends State<MemoScreen> {
         // 分类过滤
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-          child: Wrap(
-            spacing: 6,
-            runSpacing: 6,
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
             children: _categoryNames.map((label) {
               final selected = _filter == label;
               final cat = _categories.firstWhere((c) => c['name'] == label, orElse: () => {});
               final colorStr = cat['color'] as String?;
               final color = colorStr != null ? Color(int.parse(colorStr.replaceFirst('#', '0xFF'))) : Colors.indigo;
-              return ChoiceChip(
+              return Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: ChoiceChip(
                 label: Text(label, style: TextStyle(fontSize: 13,
                     color: selected ? Colors.white : color)),
                 selected: selected,
@@ -705,9 +707,9 @@ class MemoScreenState extends State<MemoScreen> {
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 15),
                 side: BorderSide(color: color.withAlpha(80)),
                 onSelected: (_) => setState(() => _filter = label),
-              );
-            }).toList(),
-          ),
+              ),
+            );}).toList(),
+          )),
         ),
         // 搜索
         Padding(

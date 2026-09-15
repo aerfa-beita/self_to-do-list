@@ -1,8 +1,11 @@
+import '../utils/sync_id.dart';
+
 class SubTask {
   final int? id;
   final int taskId;
-  final int? parentId; // null = top-level, otherwise points to parent SubTask.id
-  final int level;     // 0 = top-level, max 4 (5 levels total)
+  final int?
+  parentId; // null = top-level, otherwise points to parent SubTask.id
+  final int level; // 0 = top-level, max 4 (5 levels total)
   final String title;
   final bool isDone;
   final int sortOrder;
@@ -10,6 +13,9 @@ class SubTask {
   final DateTime? reminderTime;
   final String? repeatType;
   final DateTime? deletedAt;
+  final String syncId;
+  final DateTime updatedAt;
+  final int revision;
 
   SubTask({
     this.id,
@@ -23,7 +29,11 @@ class SubTask {
     this.reminderTime,
     this.repeatType,
     this.deletedAt,
-  });
+    String? syncId,
+    DateTime? updatedAt,
+    this.revision = 1,
+  }) : syncId = syncId ?? SyncId.generate(),
+       updatedAt = updatedAt ?? DateTime.now();
 
   bool get isDeleted => deletedAt != null;
   bool get canHaveChildren => level < 4;
@@ -31,7 +41,11 @@ class SubTask {
   bool get isOverdue {
     if (dueDate == null || isDone) return false;
     final dueDay = DateTime(dueDate!.year, dueDate!.month, dueDate!.day);
-    final today = DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day);
+    final today = DateTime(
+      DateTime.now().year,
+      DateTime.now().month,
+      DateTime.now().day,
+    );
     return dueDay.isBefore(today);
   }
 
@@ -48,6 +62,9 @@ class SubTask {
       'reminder_time': reminderTime?.toIso8601String(),
       'repeat_type': repeatType,
       'deleted_at': deletedAt?.toIso8601String(),
+      'sync_id': syncId,
+      'updated_at': updatedAt.toIso8601String(),
+      'revision': revision,
     };
   }
 
@@ -61,9 +78,18 @@ class SubTask {
       isDone: map['is_done'] == 1,
       sortOrder: map['sort_order'] ?? 0,
       dueDate: map['due_date'] != null ? DateTime.parse(map['due_date']) : null,
-      reminderTime: map['reminder_time'] != null ? DateTime.parse(map['reminder_time']) : null,
+      reminderTime: map['reminder_time'] != null
+          ? DateTime.parse(map['reminder_time'])
+          : null,
       repeatType: map['repeat_type'] as String?,
-      deletedAt: map['deleted_at'] != null ? DateTime.parse(map['deleted_at']) : null,
+      deletedAt: map['deleted_at'] != null
+          ? DateTime.parse(map['deleted_at'])
+          : null,
+      syncId: map['sync_id'] as String?,
+      updatedAt: map['updated_at'] != null
+          ? DateTime.parse(map['updated_at'])
+          : DateTime.now(),
+      revision: map['revision'] ?? 1,
     );
   }
 
@@ -84,6 +110,9 @@ class SubTask {
     bool clearDueDate = false,
     bool clearReminderTime = false,
     bool clearDeletedAt = false,
+    String? syncId,
+    DateTime? updatedAt,
+    int? revision,
   }) {
     return SubTask(
       id: id ?? this.id,
@@ -94,9 +123,14 @@ class SubTask {
       isDone: isDone ?? this.isDone,
       sortOrder: sortOrder ?? this.sortOrder,
       dueDate: clearDueDate ? null : (dueDate ?? this.dueDate),
-      reminderTime: clearReminderTime ? null : (reminderTime ?? this.reminderTime),
+      reminderTime: clearReminderTime
+          ? null
+          : (reminderTime ?? this.reminderTime),
       repeatType: clearRepeatType ? null : (repeatType ?? this.repeatType),
       deletedAt: clearDeletedAt ? null : (deletedAt ?? this.deletedAt),
+      syncId: syncId ?? this.syncId,
+      updatedAt: updatedAt ?? DateTime.now(),
+      revision: revision ?? (this.revision + 1),
     );
   }
 }

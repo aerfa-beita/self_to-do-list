@@ -1,4 +1,13 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <uses-permission android:name="android.permission.INTERNET"/>
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
+    <!-- 精确闹钟：保证提醒到点准触发（API 33+ 自动授予，闹钟/日历类应用） -->
+    <uses-permission android:name="android.permission.USE_EXACT_ALARM"/>
+    <!-- 精确闹钟（Android 12/13 走这个；14+ 有 USE_EXACT_ALARM 时忽略） -->
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM"/>
+    <!-- 电池优化白名单弹窗（小米等 ROM 后台限制拦截提醒时需要） -->
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS"/>
     <application
         android:label="todo_list"
         android:name="${applicationName}"
@@ -25,11 +34,59 @@
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
+        <activity
+            android:name=".WidgetQuickTaskActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:theme="@style/WidgetDialogTheme" />
+
+        <receiver
+            android:name=".NowTaskWidgetProvider"
+            android:exported="true"
+            android:label="@string/now_widget_name">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/now_task_widget_info" />
+        </receiver>
+        <receiver
+            android:name=".WeekTaskWidgetProvider"
+            android:exported="true"
+            android:label="@string/week_widget_name">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/week_task_widget_info" />
+        </receiver>
+        <receiver
+            android:name=".WidgetActionReceiver"
+            android:exported="false" />
+        <service
+            android:name=".TaskWidgetService"
+            android:exported="false"
+            android:permission="android.permission.BIND_REMOTEVIEWS" />
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
+        <receiver
+            android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationReceiver"
+            android:exported="false" />
+        <receiver
+            android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationBootReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED"/>
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED"/>
+                <action android:name="android.intent.action.QUICKBOOT_POWERON"/>
+                <action android:name="com.htc.intent.action.QUICKBOOT_POWERON"/>
+            </intent-filter>
+        </receiver>
     </application>
     <!-- Required to query activities that can process text, see:
          https://developer.android.com/training/package-visibility and

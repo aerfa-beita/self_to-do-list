@@ -1,0 +1,652 @@
+{
+  "schemaVersion": 1,
+  "canvas": {
+    "width": 512,
+    "height": 512
+  },
+  "coordinateSpace": "assembledCanvasPixels",
+  "directions": {
+    "front": {
+      "parts": [
+        {
+          "name": "body_shadow",
+          "fileName": "assets/front/body_shadow.png",
+          "x": 181,
+          "y": 476,
+          "width": 120,
+          "height": 34,
+          "rotationPivotX": 241.0,
+          "rotationPivotY": 493.0,
+          "zIndex": 0,
+          "defaultVisible": true
+        },
+        {
+          "name": "right_thigh",
+          "fileName": "assets/front/right_thigh.png",
+          "x": 210,
+          "y": 415,
+          "width": 51,
+          "height": 63,
+          "rotationPivotX": 235.5,
+          "rotationPivotY": 422.56,
+          "zIndex": 12,
+          "defaultVisible": true
+        },
+        {
+          "name": "right_shin_foot",
+          "fileName": "assets/front/right_shin_foot.png",
+          "x": 214,
+          "y": 441,
+          "width": 44,
+          "height": 64,
+          "rotationPivotX": 236.0,
+          "rotationPivotY": 448.68,
+          "zIndex": 13,
+          "defaultVisible": true
+        },
+        {
+          "name": "right_upper_arm",
+          "fileName": "assets/front/right_upper_arm.png",
+          "x": 184,
+          "y": 323,
+          "width": 37,
+          "height": 85,
+          "rotationPivotX": 202.5,
+          "rotationPivotY": 331.5,
+          "zIndex": 22,
+          "defaultVisible": true
+        },
+        {
+          "name": "right_forearm_hand_open",
+          "fileName": "assets/front/right_forearm_hand_open.png",
+          "x": 174,
+          "y": 355,
+          "width": 44,
+          "height": 95,
+          "rotationPivotX": 196.0,
+          "rotationPivotY": 364.5,
+          "zIndex": 23,
+          "defaultVisible": true
+        },
+        {
+          "name": "right_forearm_hand_grip",
+          "fileName": "assets/front/right_forearm_hand_grip.png",
+          "x": 173,
+          "y": 355,
+          "width": 48,
+          "height": 95,
+          "rotationPivotX": 197.0,
+          "rotationPivotY": 364.5,
+          "zIndex": 23,
+          "defaultVisible": false
+        },
+        {
+          "name": "torso_shirt",
+          "fileName": "assets/front/torso_shirt.png",
+          "x": 183,
+          "y": 289,
+          "width": 146,
+          "height": 105,
+          "rotationPivotX": 256.0,
+          "rotationPivotY": 310.0,
+          "zIndex": 30,
+          "defaultVisible": true
+        },
+        {
+          "name": "left_thigh",
+          "fileName": "assets/front/left_thigh.png",
+          "x": 252,
+          "y": 415,
+          "width": 51,
+          "height": 63,
+          "rotationPivotX": 277.5,
+          "rotationPivotY": 422.56,
+          "zIndex": 12,
+          "defaultVisible": true
+        },
+        {
+          "name": "left_shin_foot",
+          "fileName": "assets/front/left_shin_foot.png",
+          "x": 258,
+          "y": 441,
+          "width": 45,
+          "height": 64,
+          "rotationPivotX": 280.5,
+          "rotationPivotY": 448.68,
+          "zIndex": 13,
+          "defaultVisible": true
+        },
+        {
+          "name": "pelvis_shorts",
+          "fileName": "assets/front/pelvis_shorts.png",
+          "x": 218,
+          "y": 365,
+          "width": 76,
+          "height": 83,
+          "rotationPivotX": 256.0,
+          "rotationPivotY": 379.94,
+          "zIndex": 29,
+          "defaultVisible": true
+        },
+        {
+          "name": "left_upper_arm",
+          "fileName": "assets/front/left_upper_arm.png",
+          "x": 291,
+          "y": 323,
+          "width": 37,
+          "height": 85,
+          "rotationPivotX": 309.5,
+          "rotationPivotY": 331.5,
+          "zIndex": 22,
+          "defaultVisible": true
+        },
+        {
+          "name": "left_forearm_hand_open",
+          "fileName": "assets/front/left_forearm_hand_open.png",
+          "x": 297,
+          "y": 355,
+          "width": 42,
+          "height": 95,
+          "rotationPivotX": 318.0,
+          "rotationPivotY": 364.5,
+          "zIndex": 23,
+          "defaultVisible": true
+        },
+        {
+          "name": "left_forearm_hand_grip",
+          "fileName": "assets/front/left_forearm_hand_grip.png",
+          "x": 296,
+          "y": 355,
+          "width": 43,
+          "height": 95,
+          "rotationPivotX": 317.5,
+          "rotationPivotY": 364.5,
+          "zIndex": 23,
+          "defaultVisible": false
+        },
+        {
+          "name": "head_hair_glasses",
+          "fileName": "assets/front/head_hair_glasses.png",
+          "x": 87,
+          "y": 8,
+          "width": 339,
+          "height": 308,
+          "rotationPivotX": 256.5,
+          "rotationPivotY": 279.04,
+          "zIndex": 50,
+          "defaultVisible": true
+        },
+        {
+          "name": "earring_pendant",
+          "fileName": "assets/front/earring_pendant.png",
+          "x": 123,
+          "y": 260,
+          "width": 21,
+          "height": 47,
+          "rotationPivotX": 133.5,
+          "rotationPivotY": 263.76,
+          "zIndex": 55,
+          "defaultVisible": true
+        }
+      ],
+      "leftHandGripAnchor": {
+        "x": 348,
+        "y": 423
+      },
+      "rightHandGripAnchor": {
+        "x": 164,
+        "y": 423
+      },
+      "leftFootContactAnchor": {
+        "x": 279,
+        "y": 500
+      },
+      "rightFootContactAnchor": {
+        "x": 233,
+        "y": 500
+      },
+      "headAnchor": {
+        "x": 256,
+        "y": 289
+      },
+      "taskCarryAnchor": {
+        "x": 257,
+        "y": 397
+      },
+      "earringPivotAnchor": {
+        "x": 134,
+        "y": 264
+      }
+    },
+    "left": {
+      "parts": [
+        {
+          "name": "body_shadow",
+          "fileName": "assets/left/body_shadow.png",
+          "x": 190,
+          "y": 476,
+          "width": 119,
+          "height": 34,
+          "rotationPivotX": 249.5,
+          "rotationPivotY": 493.0,
+          "zIndex": 0,
+          "defaultVisible": true
+        },
+        {
+          "name": "right_thigh",
+          "fileName": "assets/left/right_thigh.png",
+          "x": 258,
+          "y": 416,
+          "width": 47,
+          "height": 64,
+          "rotationPivotX": 281.5,
+          "rotationPivotY": 423.68,
+          "zIndex": 8,
+          "defaultVisible": true
+        },
+        {
+          "name": "right_shin_foot",
+          "fileName": "assets/left/right_shin_foot.png",
+          "x": 247,
+          "y": 441,
+          "width": 44,
+          "height": 64,
+          "rotationPivotX": 269.0,
+          "rotationPivotY": 448.68,
+          "zIndex": 9,
+          "defaultVisible": true
+        },
+        {
+          "name": "right_upper_arm",
+          "fileName": "assets/left/right_upper_arm.png",
+          "x": 245,
+          "y": 323,
+          "width": 35,
+          "height": 78,
+          "rotationPivotX": 262.5,
+          "rotationPivotY": 330.8,
+          "zIndex": 8,
+          "defaultVisible": true
+        },
+        {
+          "name": "right_forearm_hand_open",
+          "fileName": "assets/left/right_forearm_hand_open.png",
+          "x": 252,
+          "y": 353,
+          "width": 43,
+          "height": 88,
+          "rotationPivotX": 273.5,
+          "rotationPivotY": 361.8,
+          "zIndex": 9,
+          "defaultVisible": true
+        },
+        {
+          "name": "right_forearm_hand_grip",
+          "fileName": "assets/left/right_forearm_hand_grip.png",
+          "x": 250,
+          "y": 353,
+          "width": 52,
+          "height": 88,
+          "rotationPivotX": 276.0,
+          "rotationPivotY": 361.8,
+          "zIndex": 9,
+          "defaultVisible": false
+        },
+        {
+          "name": "torso_shirt",
+          "fileName": "assets/left/torso_shirt.png",
+          "x": 173,
+          "y": 290,
+          "width": 112,
+          "height": 105,
+          "rotationPivotX": 229.0,
+          "rotationPivotY": 311.0,
+          "zIndex": 30,
+          "defaultVisible": true
+        },
+        {
+          "name": "left_thigh",
+          "fileName": "assets/left/left_thigh.png",
+          "x": 219,
+          "y": 415,
+          "width": 48,
+          "height": 64,
+          "rotationPivotX": 243.0,
+          "rotationPivotY": 422.68,
+          "zIndex": 12,
+          "defaultVisible": true
+        },
+        {
+          "name": "left_shin_foot",
+          "fileName": "assets/left/left_shin_foot.png",
+          "x": 203,
+          "y": 441,
+          "width": 46,
+          "height": 64,
+          "rotationPivotX": 226.0,
+          "rotationPivotY": 448.68,
+          "zIndex": 13,
+          "defaultVisible": true
+        },
+        {
+          "name": "pelvis_shorts",
+          "fileName": "assets/left/pelvis_shorts.png",
+          "x": 219,
+          "y": 365,
+          "width": 72,
+          "height": 88,
+          "rotationPivotX": 255.0,
+          "rotationPivotY": 380.84,
+          "zIndex": 29,
+          "defaultVisible": true
+        },
+        {
+          "name": "left_upper_arm",
+          "fileName": "assets/left/left_upper_arm.png",
+          "x": 213,
+          "y": 323,
+          "width": 34,
+          "height": 78,
+          "rotationPivotX": 230.0,
+          "rotationPivotY": 330.8,
+          "zIndex": 22,
+          "defaultVisible": true
+        },
+        {
+          "name": "left_forearm_hand_open",
+          "fileName": "assets/left/left_forearm_hand_open.png",
+          "x": 198,
+          "y": 353,
+          "width": 48,
+          "height": 88,
+          "rotationPivotX": 222.0,
+          "rotationPivotY": 361.8,
+          "zIndex": 23,
+          "defaultVisible": true
+        },
+        {
+          "name": "left_forearm_hand_grip",
+          "fileName": "assets/left/left_forearm_hand_grip.png",
+          "x": 196,
+          "y": 353,
+          "width": 52,
+          "height": 88,
+          "rotationPivotX": 222.0,
+          "rotationPivotY": 361.8,
+          "zIndex": 23,
+          "defaultVisible": false
+        },
+        {
+          "name": "head_hair_glasses",
+          "fileName": "assets/left/head_hair_glasses.png",
+          "x": 81,
+          "y": 8,
+          "width": 330,
+          "height": 304,
+          "rotationPivotX": 246.0,
+          "rotationPivotY": 275.52,
+          "zIndex": 50,
+          "defaultVisible": true
+        },
+        {
+          "name": "earring_pendant",
+          "fileName": "assets/left/earring_pendant.png",
+          "x": 282,
+          "y": 225,
+          "width": 21,
+          "height": 47,
+          "rotationPivotX": 292.5,
+          "rotationPivotY": 228.76,
+          "zIndex": 15,
+          "defaultVisible": false
+        }
+      ],
+      "leftHandGripAnchor": {
+        "x": 221,
+        "y": 422
+      },
+      "rightHandGripAnchor": {
+        "x": 273,
+        "y": 422
+      },
+      "leftFootContactAnchor": {
+        "x": 223,
+        "y": 500
+      },
+      "rightFootContactAnchor": {
+        "x": 271,
+        "y": 500
+      },
+      "headAnchor": {
+        "x": 252,
+        "y": 289
+      },
+      "taskCarryAnchor": {
+        "x": 177,
+        "y": 396
+      },
+      "earringPivotAnchor": {
+        "x": 296,
+        "y": 228
+      }
+    },
+    "right": {
+      "parts": [
+        {
+          "name": "body_shadow",
+          "fileName": "assets/right/body_shadow.png",
+          "x": 186,
+          "y": 476,
+          "width": 115,
+          "height": 34,
+          "rotationPivotX": 243.5,
+          "rotationPivotY": 493.0,
+          "zIndex": 0,
+          "defaultVisible": true
+        },
+        {
+          "name": "right_thigh",
+          "fileName": "assets/right/right_thigh.png",
+          "x": 258,
+          "y": 415,
+          "width": 46,
+          "height": 64,
+          "rotationPivotX": 281.0,
+          "rotationPivotY": 422.68,
+          "zIndex": 12,
+          "defaultVisible": true
+        },
+        {
+          "name": "right_shin_foot",
+          "fileName": "assets/right/right_shin_foot.png",
+          "x": 258,
+          "y": 441,
+          "width": 46,
+          "height": 64,
+          "rotationPivotX": 281.0,
+          "rotationPivotY": 448.68,
+          "zIndex": 13,
+          "defaultVisible": true
+        },
+        {
+          "name": "right_upper_arm",
+          "fileName": "assets/right/right_upper_arm.png",
+          "x": 250,
+          "y": 323,
+          "width": 33,
+          "height": 78,
+          "rotationPivotX": 266.5,
+          "rotationPivotY": 330.8,
+          "zIndex": 22,
+          "defaultVisible": true
+        },
+        {
+          "name": "right_forearm_hand_open",
+          "fileName": "assets/right/right_forearm_hand_open.png",
+          "x": 268,
+          "y": 353,
+          "width": 45,
+          "height": 88,
+          "rotationPivotX": 290.5,
+          "rotationPivotY": 361.8,
+          "zIndex": 23,
+          "defaultVisible": true
+        },
+        {
+          "name": "right_forearm_hand_grip",
+          "fileName": "assets/right/right_forearm_hand_grip.png",
+          "x": 268,
+          "y": 353,
+          "width": 49,
+          "height": 88,
+          "rotationPivotX": 292.5,
+          "rotationPivotY": 361.8,
+          "zIndex": 23,
+          "defaultVisible": false
+        },
+        {
+          "name": "torso_shirt",
+          "fileName": "assets/right/torso_shirt.png",
+          "x": 176,
+          "y": 290,
+          "width": 105,
+          "height": 105,
+          "rotationPivotX": 228.5,
+          "rotationPivotY": 311.0,
+          "zIndex": 30,
+          "defaultVisible": true
+        },
+        {
+          "name": "left_thigh",
+          "fileName": "assets/right/left_thigh.png",
+          "x": 213,
+          "y": 416,
+          "width": 45,
+          "height": 64,
+          "rotationPivotX": 235.5,
+          "rotationPivotY": 423.68,
+          "zIndex": 8,
+          "defaultVisible": true
+        },
+        {
+          "name": "left_shin_foot",
+          "fileName": "assets/right/left_shin_foot.png",
+          "x": 219,
+          "y": 441,
+          "width": 43,
+          "height": 64,
+          "rotationPivotX": 240.5,
+          "rotationPivotY": 448.68,
+          "zIndex": 9,
+          "defaultVisible": true
+        },
+        {
+          "name": "pelvis_shorts",
+          "fileName": "assets/right/pelvis_shorts.png",
+          "x": 220,
+          "y": 365,
+          "width": 73,
+          "height": 88,
+          "rotationPivotX": 256.5,
+          "rotationPivotY": 380.84,
+          "zIndex": 29,
+          "defaultVisible": true
+        },
+        {
+          "name": "left_upper_arm",
+          "fileName": "assets/right/left_upper_arm.png",
+          "x": 223,
+          "y": 323,
+          "width": 32,
+          "height": 78,
+          "rotationPivotX": 239.0,
+          "rotationPivotY": 330.8,
+          "zIndex": 8,
+          "defaultVisible": true
+        },
+        {
+          "name": "left_forearm_hand_open",
+          "fileName": "assets/right/left_forearm_hand_open.png",
+          "x": 216,
+          "y": 353,
+          "width": 44,
+          "height": 88,
+          "rotationPivotX": 238.0,
+          "rotationPivotY": 361.8,
+          "zIndex": 9,
+          "defaultVisible": true
+        },
+        {
+          "name": "left_forearm_hand_grip",
+          "fileName": "assets/right/left_forearm_hand_grip.png",
+          "x": 216,
+          "y": 353,
+          "width": 40,
+          "height": 88,
+          "rotationPivotX": 236.0,
+          "rotationPivotY": 361.8,
+          "zIndex": 9,
+          "defaultVisible": false
+        },
+        {
+          "name": "head_hair_glasses",
+          "fileName": "assets/right/head_hair_glasses.png",
+          "x": 113,
+          "y": 8,
+          "width": 317,
+          "height": 300,
+          "rotationPivotX": 271.5,
+          "rotationPivotY": 272.0,
+          "zIndex": 50,
+          "defaultVisible": true
+        },
+        {
+          "name": "earring_pendant",
+          "fileName": "assets/right/earring_pendant.png",
+          "x": 179,
+          "y": 269,
+          "width": 21,
+          "height": 47,
+          "rotationPivotX": 189.5,
+          "rotationPivotY": 272.76,
+          "zIndex": 55,
+          "defaultVisible": true
+        }
+      ],
+      "leftHandGripAnchor": {
+        "x": 237,
+        "y": 422
+      },
+      "rightHandGripAnchor": {
+        "x": 288,
+        "y": 422
+      },
+      "leftFootContactAnchor": {
+        "x": 238,
+        "y": 500
+      },
+      "rightFootContactAnchor": {
+        "x": 285,
+        "y": 500
+      },
+      "headAnchor": {
+        "x": 257,
+        "y": 289
+      },
+      "taskCarryAnchor": {
+        "x": 335,
+        "y": 396
+      },
+      "earringPivotAnchor": {
+        "x": 190,
+        "y": 273
+      }
+    }
+  },
+  "notes": {
+    "anatomy": "left/right names are anatomical, not screen sides",
+    "directionRule": "left and right assets are independently drawn and must not be mirrored",
+    "taskBinding": "bind the task card between both hand grip anchors around taskCarryAnchor",
+    "jointOverlap": "Connector overlap is intentional; default z-order hides it beneath clothing or the adjacent limb while preserving safe rotation coverage."
+  }
+}

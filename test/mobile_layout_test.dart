@@ -1,0 +1,147 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:sqflite_common_ffi/sqflite_ffi.dart';
+import 'package:todo_list/database/database.dart';
+import 'package:todo_list/models/task.dart';
+import 'package:todo_list/repositories/category_repository.dart';
+import 'package:todo_list/repositories/memo_category_repository.dart';
+import 'package:todo_list/repositories/memo_repository.dart';
+import 'package:todo_list/repositories/subtask_repository.dart';
+import 'package:todo_list/repositories/task_memo_repository.dart';
+import 'package:todo_list/repositories/task_repository.dart';
+import 'package:todo_list/screens/memo_screen.dart';
+import 'package:todo_list/screens/todo_screen.dart';
+import 'package:todo_list/services/memo_service.dart';
+import 'package:todo_list/services/notification_service.dart';
+import 'package:todo_list/services/task_memo_service.dart';
+import 'package:todo_list/services/task_service.dart';
+import 'package:todo_list/widgets/workload_companion.dart';
+
+void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
+  Future<void> waitForNativeDatabase(WidgetTester tester) async {
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 200)),
+    );
+    await tester.pump();
+  }
+
+  testWidgets('mobile Todo hides persistent input and uses edge companion', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(412, 915);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.view.resetPhysicalSize);
+    final db = (await tester.runAsync(() async {
+      sqfliteFfiInit();
+      databaseFactory = databaseFactoryFfi;
+      return DatabaseProvider().openAtPath(inMemoryDatabasePath);
+    }))!;
+    addTearDown(() => tester.runAsync(db.close));
+    await tester.runAsync(
+      () => TaskRepository(db).insert(Task(title: '长按取消测试')),
+    );
+    final screenKey = GlobalKey<TodoScreenState>();
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: TodoScreen(
+          key: screenKey,
+          taskService: TaskService(
+            TaskRepository(db),
+            SubTaskRepository(db),
+            CategoryRepository(db),
+          ),
+          notificationService: NotificationService(),
+          taskMemoService: TaskMemoService(
+            TaskRepository(db),
+            TaskMemoRepository(db),
+            SubTaskRepository(db),
+            MemoService(MemoRepository(db), MemoCategoryRepository(db)),
+          ),
+        ),
+      ),
+    );
+    await waitForNativeDatabase(tester);
+
+    expect(find.byType(TextField), findsNothing);
+    await tester.longPress(find.text('长按取消测试'));
+    await tester.pump();
+    expect(find.byKey(const Key('todo-selection-cancel')), findsOneWidget);
+    expect(find.byKey(const Key('todo-selection-more')), findsOneWidget);
+    await tester.tap(find.byKey(const Key('todo-selection-cancel')));
+    await tester.pump();
+    expect(find.byKey(const Key('todo-selection-cancel')), findsNothing);
+    expect(tester.getSize(find.byType(WorkloadCompanion)), const Size(48, 48));
+    expect(
+      find.byKey(const ValueKey('companion-edge-tap-target')),
+      findsOneWidget,
+    );
+    expect(find.byKey(const Key('todo-display-mode')), findsOneWidget);
+    expect(find.byKey(const Key('todo-mobile-toolbar')), findsOneWidget);
+    expect(find.byKey(const Key('todo-mobile-filter-button')), findsOneWidget);
+    await tester.tap(find.byKey(const Key('todo-mobile-filter-button')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.text('筛选与统计'), findsOneWidget);
+    expect(find.byType(TextField), findsOneWidget);
+    await tester.tap(find.byTooltip('关闭'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.tap(find.text('安排').first);
+    await tester.pump();
+    expect(find.byKey(const Key('arrangement-mobile')), findsOneWidget);
+    expect(find.textContaining('未安排任务'), findsNothing);
+    expect(find.byKey(const Key('arrangement-add-plan_now')), findsOneWidget);
+    await tester.pumpWidget(const SizedBox.shrink());
+    await waitForNativeDatabase(tester);
+  });
+
+  testWidgets('mobile Memo hides persistent input', (tester) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(412, 915);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.view.resetPhysicalSize);
+    final db = (await tester.runAsync(() async {
+      sqfliteFfiInit();
+      databaseFactory = databaseFactoryFfi;
+      return DatabaseProvider().openAtPath(inMemoryDatabasePath);
+    }))!;
+    addTearDown(() => tester.runAsync(db.close));
+    final screenKey = GlobalKey<MemoScreenState>();
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: MemoScreen(
+            key: screenKey,
+            memoService: MemoService(
+              MemoRepository(db),
+              MemoCategoryRepository(db),
+            ),
+            notificationService: NotificationService(),
+            taskMemoService: TaskMemoService(
+              TaskRepository(db),
+              TaskMemoRepository(db),
+              SubTaskRepository(db),
+              MemoService(MemoRepository(db), MemoCategoryRepository(db)),
+            ),
+            taskService: TaskService(
+              TaskRepository(db),
+              SubTaskRepository(db),
+              CategoryRepository(db),
+            ),
+          ),
+        ),
+      ),
+    );
+    await waitForNativeDatabase(tester);
+
+    expect(find.byType(TextField), findsNothing);
+    expect(find.text('还没有备忘录，点右下角创建'), findsOneWidget);
+    await tester.pumpWidget(const SizedBox.shrink());
+    await waitForNativeDatabase(tester);
+  });
+}

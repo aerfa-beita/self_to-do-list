@@ -1,20 +1,29 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../models/task.dart';
 import '../models/sub_task.dart';
 import '../services/task_service.dart';
 import '../services/notification_service.dart';
 import '../utils/date_utils.dart';
 
+class _FocusSubInputIntent extends Intent {
+  const _FocusSubInputIntent();
+}
+
 class TaskDetailScreen extends StatefulWidget {
   final Task task;
   final TaskService taskService;
   final NotificationService notificationService;
+  final Future<Task?> Function(Task task)? onEditTask;
+  final String actionScope;
 
   const TaskDetailScreen({
     super.key,
     required this.task,
     required this.taskService,
     required this.notificationService,
+    this.onEditTask,
+    this.actionScope = Task.actionScopeInbox,
   });
 
   @override
@@ -22,6 +31,7 @@ class TaskDetailScreen extends StatefulWidget {
 }
 
 class _TaskDetailScreenState extends State<TaskDetailScreen> {
+  late Task _currentTask;
   List<SubTask> _roots = [];
   Map<int, List<SubTask>> _children = {};
   final Set<int> _expanded = {};
@@ -31,6 +41,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
   @override
   void initState() {
     super.initState();
+    _currentTask = widget.task;
     _loadAll();
   }
 
@@ -49,7 +60,10 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
       if (ch.isNotEmpty) children[r.id!] = ch;
     }
     if (!mounted) return;
-    setState(() { _roots = roots; _children = children; });
+    setState(() {
+      _roots = roots;
+      _children = children;
+    });
   }
 
   Future<void> _loadChildren(int parentId) async {
@@ -64,10 +78,15 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
   Future<void> _addRoot() async {
     final title = _inputController.text.trim();
     if (title.isEmpty) return;
-    await widget.taskService.insertSubTask(SubTask(taskId: widget.task.id!, title: title, level: 0));
+    await widget.taskService.insertSubTask(
+      SubTask(taskId: widget.task.id!, title: title, level: 0),
+    );
     _inputController.clear();
     _inputFocus.requestFocus();
-    await widget.taskService.checkTaskCompletion(widget.task.id!);
+    await widget.taskService.checkTaskCompletion(
+      widget.task.id!,
+      source: widget.actionScope,
+    );
     _loadAll();
   }
 
@@ -89,70 +108,112 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                 TextField(
                   controller: ctrl,
                   autofocus: true,
-                  decoration: const InputDecoration(hintText: '子任务名称', border: OutlineInputBorder()),
-                  onSubmitted: (v) { if (v.trim().isNotEmpty) Navigator.pop(ctx, v.trim()); },
+                  decoration: const InputDecoration(
+                    hintText: '子任务名称',
+                    border: OutlineInputBorder(),
+                  ),
+                  onSubmitted: (v) {
+                    if (v.trim().isNotEmpty) Navigator.pop(ctx, v.trim());
+                  },
                 ),
                 const SizedBox(height: 10),
-                Row(children: [
-                  Expanded(
-                    child: InkWell(
-                      onTap: () async {
-                        final p = await showDatePicker(
-                          context: ctx,
-                          initialDate: DateTime.now(),
-                          firstDate: DateTime.now(),
-                          lastDate: DateTime.now().add(const Duration(days: 365 * 5)),
-                          locale: const Locale('zh'),
-                        );
-                        if (p != null) setSt(() => dueDate = p);
-                      },
-                      child: InputDecorator(
-                        decoration: const InputDecoration(
-                          labelText: '截止日期（可选）', border: OutlineInputBorder(), isDense: true,
-                          suffixIcon: Icon(Icons.calendar_today, size: 16),
-                        ),
-                        child: Text(dueDate != null ? '${dueDate!.month}/${dueDate!.day}' : '点击选择',
-                            style: TextStyle(fontSize: 13, color: dueDate != null ? null : Colors.grey)),
-                      ),
-                    ),
-                  ),
-                  if (dueDate != null) ...[
-                    const SizedBox(width: 8),
+                Row(
+                  children: [
                     Expanded(
                       child: InkWell(
                         onTap: () async {
-                          final initial = reminderTime != null
-                              ? TimeOfDay(hour: reminderTime!.hour, minute: reminderTime!.minute)
-                              : TimeOfDay(hour: (DateTime.now().hour + 1) % 24, minute: 0);
-                          final p = await showTimePicker(
+                          final p = await showDatePicker(
                             context: ctx,
-                            initialTime: initial,
+                            initialDate: DateTime.now(),
+                            firstDate: DateTime.now(),
+                            lastDate: DateTime.now().add(
+                              const Duration(days: 365 * 5),
+                            ),
+                            locale: const Locale('zh'),
                           );
-                          if (p != null) {
-                            setSt(() => reminderTime = DateTime(2024, 1, 1, p.hour, p.minute));
-                          }
+                          if (p != null) setSt(() => dueDate = p);
                         },
                         child: InputDecorator(
                           decoration: const InputDecoration(
-                            labelText: '提醒时间', border: OutlineInputBorder(), isDense: true,
-                            suffixIcon: Icon(Icons.access_time, size: 16),
+                            labelText: '截止日期（可选）',
+                            border: OutlineInputBorder(),
+                            isDense: true,
+                            suffixIcon: Icon(Icons.calendar_today, size: 16),
                           ),
                           child: Text(
-                            reminderTime != null
-                                ? '${reminderTime!.hour.toString().padLeft(2, '0')}:${reminderTime!.minute.toString().padLeft(2, '0')}'
-                                : '可选',
-                            style: TextStyle(fontSize: 13, color: reminderTime != null ? null : Colors.grey),
+                            dueDate != null
+                                ? '${dueDate!.month}/${dueDate!.day}'
+                                : '点击选择',
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: dueDate != null ? null : Colors.grey,
+                            ),
                           ),
                         ),
                       ),
                     ),
+                    if (dueDate != null) ...[
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: InkWell(
+                          onTap: () async {
+                            final initial = reminderTime != null
+                                ? TimeOfDay(
+                                    hour: reminderTime!.hour,
+                                    minute: reminderTime!.minute,
+                                  )
+                                : TimeOfDay(
+                                    hour: (DateTime.now().hour + 1) % 24,
+                                    minute: 0,
+                                  );
+                            final p = await showTimePicker(
+                              context: ctx,
+                              initialTime: initial,
+                            );
+                            if (p != null) {
+                              setSt(
+                                () => reminderTime = DateTime(
+                                  2024,
+                                  1,
+                                  1,
+                                  p.hour,
+                                  p.minute,
+                                ),
+                              );
+                            }
+                          },
+                          child: InputDecorator(
+                            decoration: const InputDecoration(
+                              labelText: '提醒时间',
+                              border: OutlineInputBorder(),
+                              isDense: true,
+                              suffixIcon: Icon(Icons.access_time, size: 16),
+                            ),
+                            child: Text(
+                              reminderTime != null
+                                  ? '${reminderTime!.hour.toString().padLeft(2, '0')}:${reminderTime!.minute.toString().padLeft(2, '0')}'
+                                  : '可选',
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: reminderTime != null
+                                    ? null
+                                    : Colors.grey,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
                   ],
-                ]),
+                ),
               ],
             ),
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('取消')),
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('取消'),
+            ),
             FilledButton(
               onPressed: () {
                 final v = ctrl.text.trim();
@@ -165,24 +226,40 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
       ),
     );
     if (title == null || title.isEmpty || !mounted) return;
-    final newId = await widget.taskService.insertSubTask(SubTask(
-      taskId: widget.task.id!, parentId: parent.id, level: parent.level + 1,
-      title: title, dueDate: dueDate, reminderTime: reminderTime,
-      repeatType: repeatType,
-    ));
-    if (dueDate != null && reminderTime != null) {
-      await _scheduleSubTaskReminder(SubTask(
-        id: newId, taskId: widget.task.id!, title: title,
-        dueDate: dueDate, reminderTime: reminderTime,
+    final newId = await widget.taskService.insertSubTask(
+      SubTask(
+        taskId: widget.task.id!,
+        parentId: parent.id,
+        level: parent.level + 1,
+        title: title,
+        dueDate: dueDate,
+        reminderTime: reminderTime,
         repeatType: repeatType,
-      ));
+      ),
+    );
+    if (dueDate != null && reminderTime != null) {
+      await _scheduleSubTaskReminder(
+        SubTask(
+          id: newId,
+          taskId: widget.task.id!,
+          title: title,
+          dueDate: dueDate,
+          reminderTime: reminderTime,
+          repeatType: repeatType,
+        ),
+      );
     }
     _expanded.add(parent.id!);
     await _loadChildren(parent.id!);
-    await widget.taskService.checkTaskCompletion(widget.task.id!);
+    await widget.taskService.checkTaskCompletion(
+      widget.task.id!,
+      source: widget.actionScope,
+    );
     final roots = await widget.taskService.getRootSubTasks(widget.task.id!);
     if (!mounted) return;
-    setState(() { _roots = roots; });
+    setState(() {
+      _roots = roots;
+    });
   }
 
   Future<void> _editSubTask(SubTask st) async {
@@ -204,70 +281,112 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                 TextField(
                   controller: ctrl,
                   autofocus: true,
-                  decoration: const InputDecoration(hintText: '子任务名称', border: OutlineInputBorder()),
-                  onSubmitted: (v) { if (v.trim().isNotEmpty) Navigator.pop(ctx, v.trim()); },
+                  decoration: const InputDecoration(
+                    hintText: '子任务名称',
+                    border: OutlineInputBorder(),
+                  ),
+                  onSubmitted: (v) {
+                    if (v.trim().isNotEmpty) Navigator.pop(ctx, v.trim());
+                  },
                 ),
                 const SizedBox(height: 10),
-                Row(children: [
-                  Expanded(
-                    child: InkWell(
-                      onTap: () async {
-                        final p = await showDatePicker(
-                          context: ctx,
-                          initialDate: dueDate ?? DateTime.now(),
-                          firstDate: DateTime.now(),
-                          lastDate: DateTime.now().add(const Duration(days: 365 * 5)),
-                          locale: const Locale('zh'),
-                        );
-                        if (p != null) setSt(() => dueDate = p);
-                      },
-                      child: InputDecorator(
-                        decoration: const InputDecoration(
-                          labelText: '截止日期', border: OutlineInputBorder(), isDense: true,
-                          suffixIcon: Icon(Icons.calendar_today, size: 16),
-                        ),
-                        child: Text(dueDate != null ? '${dueDate!.month}/${dueDate!.day}' : '点击选择',
-                            style: TextStyle(fontSize: 13, color: dueDate != null ? null : Colors.grey)),
-                      ),
-                    ),
-                  ),
-                  if (dueDate != null) ...[
-                    const SizedBox(width: 8),
+                Row(
+                  children: [
                     Expanded(
                       child: InkWell(
                         onTap: () async {
-                          final initial = reminderTime != null
-                              ? TimeOfDay(hour: reminderTime!.hour, minute: reminderTime!.minute)
-                              : TimeOfDay(hour: (DateTime.now().hour + 1) % 24, minute: 0);
-                          final p = await showTimePicker(
+                          final p = await showDatePicker(
                             context: ctx,
-                            initialTime: initial,
+                            initialDate: dueDate ?? DateTime.now(),
+                            firstDate: DateTime.now(),
+                            lastDate: DateTime.now().add(
+                              const Duration(days: 365 * 5),
+                            ),
+                            locale: const Locale('zh'),
                           );
-                          if (p != null) {
-                            setSt(() => reminderTime = DateTime(2024, 1, 1, p.hour, p.minute));
-                          }
+                          if (p != null) setSt(() => dueDate = p);
                         },
                         child: InputDecorator(
                           decoration: const InputDecoration(
-                            labelText: '提醒时间', border: OutlineInputBorder(), isDense: true,
-                            suffixIcon: Icon(Icons.access_time, size: 16),
+                            labelText: '截止日期',
+                            border: OutlineInputBorder(),
+                            isDense: true,
+                            suffixIcon: Icon(Icons.calendar_today, size: 16),
                           ),
                           child: Text(
-                            reminderTime != null
-                                ? '${reminderTime!.hour.toString().padLeft(2, '0')}:${reminderTime!.minute.toString().padLeft(2, '0')}'
-                                : '可选',
-                            style: TextStyle(fontSize: 13, color: reminderTime != null ? null : Colors.grey),
+                            dueDate != null
+                                ? '${dueDate!.month}/${dueDate!.day}'
+                                : '点击选择',
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: dueDate != null ? null : Colors.grey,
+                            ),
                           ),
                         ),
                       ),
                     ),
+                    if (dueDate != null) ...[
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: InkWell(
+                          onTap: () async {
+                            final initial = reminderTime != null
+                                ? TimeOfDay(
+                                    hour: reminderTime!.hour,
+                                    minute: reminderTime!.minute,
+                                  )
+                                : TimeOfDay(
+                                    hour: (DateTime.now().hour + 1) % 24,
+                                    minute: 0,
+                                  );
+                            final p = await showTimePicker(
+                              context: ctx,
+                              initialTime: initial,
+                            );
+                            if (p != null) {
+                              setSt(
+                                () => reminderTime = DateTime(
+                                  2024,
+                                  1,
+                                  1,
+                                  p.hour,
+                                  p.minute,
+                                ),
+                              );
+                            }
+                          },
+                          child: InputDecorator(
+                            decoration: const InputDecoration(
+                              labelText: '提醒时间',
+                              border: OutlineInputBorder(),
+                              isDense: true,
+                              suffixIcon: Icon(Icons.access_time, size: 16),
+                            ),
+                            child: Text(
+                              reminderTime != null
+                                  ? '${reminderTime!.hour.toString().padLeft(2, '0')}:${reminderTime!.minute.toString().padLeft(2, '0')}'
+                                  : '可选',
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: reminderTime != null
+                                    ? null
+                                    : Colors.grey,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
                   ],
-                ]),
+                ),
                 if (dueDate != null) ...[
                   DropdownButtonFormField<String>(
                     // ignore: deprecated_member_use
                     value: repeatType,
-                    decoration: const InputDecoration(labelText: '重复', border: OutlineInputBorder()),
+                    decoration: const InputDecoration(
+                      labelText: '重复',
+                      border: OutlineInputBorder(),
+                    ),
                     items: const [
                       DropdownMenuItem(value: null, child: Text('不重复')),
                       DropdownMenuItem(value: 'daily', child: Text('每天')),
@@ -277,7 +396,11 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                     onChanged: (v) => setSt(() => repeatType = v),
                   ),
                   TextButton(
-                    onPressed: () => setSt(() { dueDate = null; reminderTime = null; repeatType = null; }),
+                    onPressed: () => setSt(() {
+                      dueDate = null;
+                      reminderTime = null;
+                      repeatType = null;
+                    }),
                     child: const Text('清除日期', style: TextStyle(fontSize: 12)),
                   ),
                 ],
@@ -285,7 +408,10 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
             ),
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('取消')),
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('取消'),
+            ),
             FilledButton(
               onPressed: () {
                 final v = ctrl.text.trim();
@@ -311,7 +437,10 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     if (dueDate != null && reminderTime != null) {
       await _scheduleSubTaskReminder(updated);
     }
-    await widget.taskService.checkTaskCompletion(widget.task.id!);
+    await widget.taskService.checkTaskCompletion(
+      widget.task.id!,
+      source: widget.actionScope,
+    );
     if (st.parentId != null) {
       await _loadChildren(st.parentId!);
     }
@@ -320,18 +449,18 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
   }
 
   Future<void> _toggleSubTask(SubTask st) async {
-    final updated = st.copyWith(isDone: !st.isDone);
-    _updateSubTaskInTree(st.id!, updated);
-    if (mounted) setState(() {});           // ← 立即刷新 UI
-    await widget.taskService.updateSubTask(updated);       // 后台写 DB
-    await widget.taskService.checkTaskCompletion(widget.task.id!);
+    await widget.taskService.toggleSubTaskForTask(
+      _currentTask,
+      st,
+      source: widget.actionScope,
+    );
     if (!mounted) return;
     if (st.parentId != null) {
       await _loadChildren(st.parentId!);
     } else {
       _roots = await widget.taskService.getRootSubTasks(widget.task.id!);
     }
-    if (mounted) setState(() {});           // ← 二次刷新（同步 DB 结果）
+    if (mounted) setState(() {}); // ← 二次刷新（同步 DB 结果）
   }
 
   Future<void> _deleteSubTask(SubTask st) async {
@@ -363,16 +492,6 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     }
     _roots = await widget.taskService.getRootSubTasks(widget.task.id!);
     if (mounted) setState(() {});
-  }
-
-  void _updateSubTaskInTree(int id, SubTask updated) {
-    void update(List<SubTask> list) {
-      for (int i = 0; i < list.length; i++) {
-        if (list[i].id == id) { list[i] = updated; return; }
-        if (_children.containsKey(list[i].id)) update(_children[list[i].id!]!);
-      }
-    }
-    update(_roots);
   }
 
   Future<void> _promoteSubTask(SubTask st) async {
@@ -416,8 +535,13 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
 
   Future<void> _scheduleSubTaskReminder(SubTask st) async {
     if (st.reminderTime != null && st.dueDate != null && st.id != null) {
-      final remindAt = DateTime(st.dueDate!.year, st.dueDate!.month, st.dueDate!.day,
-          st.reminderTime!.hour, st.reminderTime!.minute);
+      final remindAt = DateTime(
+        st.dueDate!.year,
+        st.dueDate!.month,
+        st.dueDate!.day,
+        st.reminderTime!.hour,
+        st.reminderTime!.minute,
+      );
       if (remindAt.isAfter(DateTime.now())) {
         await widget.notificationService.scheduleReminder(
           id: st.id! + 30000,
@@ -454,6 +578,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
       }
       return c;
     }
+
     return count(_roots);
   }
 
@@ -465,13 +590,19 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
       }
       return c;
     }
+
     return count(_roots);
   }
 
   void _showContextMenu(Offset position, SubTask st, int index, int total) {
     showMenu<String>(
       context: context,
-      position: RelativeRect.fromLTRB(position.dx, position.dy, position.dx, position.dy),
+      position: RelativeRect.fromLTRB(
+        position.dx,
+        position.dy,
+        position.dx,
+        position.dy,
+      ),
       items: [
         if (index > 0 && !st.isDeleted)
           const PopupMenuItem(value: 'up', child: Text('⬆ 上移')),
@@ -485,38 +616,80 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
           const PopupMenuItem(value: 'add_child', child: Text('＋ 添加子任务')),
         if (st.isDeleted)
           const PopupMenuItem(value: 'restore', child: Text('↩ 恢复')),
-        PopupMenuItem(value: 'delete', child: Text(st.isDeleted ? '🗑 永久删除' : '🗑 删除')),
+        PopupMenuItem(
+          value: 'delete',
+          child: Text(st.isDeleted ? '🗑 永久删除' : '🗑 删除'),
+        ),
       ],
     ).then((v) {
       if (v == null) return;
       switch (v) {
-        case 'up': _moveSubTaskUp(st); break;
-        case 'down': _moveSubTaskDown(st); break;
-        case 'promote': _promoteSubTask(st); break;
-        case 'demote': _demoteSubTask(st); break;
-        case 'add_child': _addChild(st); break;
-        case 'delete': if (st.isDeleted) { _permDeleteSubTask(st); } else { _deleteSubTask(st); } break;
-        case 'restore': _restoreSubTask(st); break;
+        case 'up':
+          _moveSubTaskUp(st);
+          break;
+        case 'down':
+          _moveSubTaskDown(st);
+          break;
+        case 'promote':
+          _promoteSubTask(st);
+          break;
+        case 'demote':
+          _demoteSubTask(st);
+          break;
+        case 'add_child':
+          _addChild(st);
+          break;
+        case 'delete':
+          if (st.isDeleted) {
+            _permDeleteSubTask(st);
+          } else {
+            _deleteSubTask(st);
+          }
+          break;
+        case 'restore':
+          _restoreSubTask(st);
+          break;
       }
     });
   }
 
-  List<Widget> _buildTree(List<SubTask> items) {
-    final list = <Widget>[];
-    for (int i = 0; i < items.length; i++) {
-      final st = items[i];
-      final hasChildren = _children.containsKey(st.id);
-      final isExpanded = _expanded.contains(st.id);
-      final indent = st.level * 24.0;
+  Future<void> _onSubTaskReorder(
+    List<SubTask> items,
+    int oldIndex,
+    int newIndex,
+  ) async {
+    final reordered = List<SubTask>.from(items);
+    final st = reordered.removeAt(oldIndex);
+    reordered.insert(newIndex, st);
+    for (int i = 0; i < reordered.length; i++) {
+      await widget.taskService.updateSubTaskSortOrder(reordered[i].id!, i);
+    }
+    if (st.parentId != null) {
+      await _loadChildren(st.parentId!);
+    }
+    _roots = await widget.taskService.getRootSubTasks(widget.task.id!);
+    if (mounted) setState(() {});
+  }
 
-      list.add(Padding(
-        padding: EdgeInsets.only(left: indent),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            GestureDetector(
-              onSecondaryTapUp: (details) => _showContextMenu(details.globalPosition, st, i, items.length),
-              child: ListTile(
+  Widget _buildSubTaskTile(
+    SubTask st,
+    int i,
+    int total,
+    bool hasChildren,
+    bool isExpanded,
+    double indent, {
+    Key? key,
+  }) {
+    return Padding(
+      key: key,
+      padding: EdgeInsets.only(left: indent),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          GestureDetector(
+            onSecondaryTapUp: (details) =>
+                _showContextMenu(details.globalPosition, st, i, total),
+            child: ListTile(
               leading: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
@@ -525,7 +698,8 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                       onTap: () => _toggleExpand(st.id!),
                       child: Icon(
                         isExpanded ? Icons.expand_more : Icons.chevron_right,
-                        size: 20, color: Colors.grey.shade500,
+                        size: 20,
+                        color: Colors.grey.shade500,
                       ),
                     )
                   else
@@ -544,7 +718,9 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                     Text(
                       st.title,
                       style: TextStyle(
-                        decoration: (st.isDone || st.isDeleted) ? TextDecoration.lineThrough : null,
+                        decoration: (st.isDone || st.isDeleted)
+                            ? TextDecoration.lineThrough
+                            : null,
                         color: (st.isDone || st.isDeleted) ? Colors.grey : null,
                         fontSize: 16,
                       ),
@@ -554,55 +730,127 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                         '${st.isOverdue ? "已过期 " : ""}${fmtDateTime(st.dueDate, st.reminderTime)}',
                         style: TextStyle(
                           fontSize: 11,
-                          color: st.isOverdue ? Colors.red : Colors.grey.shade500,
-                          fontWeight: st.isOverdue ? FontWeight.w600 : FontWeight.normal,
+                          color: st.isOverdue
+                              ? Colors.red
+                              : Colors.grey.shade500,
+                          fontWeight: st.isOverdue
+                              ? FontWeight.w600
+                              : FontWeight.normal,
                         ),
                       ),
                   ],
                 ),
               ),
               trailing: PopupMenuButton<String>(
+                iconSize: 22,
+                constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
                 padding: EdgeInsets.zero,
-                iconSize: 18,
                 icon: Icon(Icons.more_vert, color: Colors.grey.shade500),
                 onSelected: (v) {
                   switch (v) {
-                    case 'up': _moveSubTaskUp(st); break;
-                    case 'down': _moveSubTaskDown(st); break;
-                    case 'promote': _promoteSubTask(st); break;
-                    case 'demote': _demoteSubTask(st); break;
-                    case 'add_child': _addChild(st); break;
-                    case 'delete': st.isDeleted ? _permDeleteSubTask(st) : _deleteSubTask(st); break;
-                    case 'restore': _restoreSubTask(st); break;
+                    case 'up':
+                      _moveSubTaskUp(st);
+                      break;
+                    case 'down':
+                      _moveSubTaskDown(st);
+                      break;
+                    case 'promote':
+                      _promoteSubTask(st);
+                      break;
+                    case 'demote':
+                      _demoteSubTask(st);
+                      break;
+                    case 'add_child':
+                      _addChild(st);
+                      break;
+                    case 'delete':
+                      st.isDeleted
+                          ? _permDeleteSubTask(st)
+                          : _deleteSubTask(st);
+                      break;
+                    case 'restore':
+                      _restoreSubTask(st);
+                      break;
                   }
                 },
                 itemBuilder: (_) => [
                   if (!st.isDeleted && i > 0)
                     const PopupMenuItem(value: 'up', child: Text('⬆ 上移')),
-                  if (!st.isDeleted && i < items.length - 1)
+                  if (!st.isDeleted && i < total - 1)
                     const PopupMenuItem(value: 'down', child: Text('⬇ 下移')),
                   if (!st.isDeleted && st.parentId != null)
                     const PopupMenuItem(value: 'promote', child: Text('← 提升')),
                   if (!st.isDeleted && st.level < 4 && i > 0)
                     const PopupMenuItem(value: 'demote', child: Text('→ 降入')),
                   if (!st.isDeleted && st.canHaveChildren)
-                    const PopupMenuItem(value: 'add_child', child: Text('＋ 添加子任务')),
+                    const PopupMenuItem(
+                      value: 'add_child',
+                      child: Text('＋ 添加子任务'),
+                    ),
                   if (st.isDeleted)
                     const PopupMenuItem(value: 'restore', child: Text('↩ 恢复')),
-                  PopupMenuItem(value: 'delete', child: Text(st.isDeleted ? '🗑 永久删除' : '🗑 删除')),
+                  PopupMenuItem(
+                    value: 'delete',
+                    child: Text(st.isDeleted ? '🗑 永久删除' : '🗑 删除'),
+                  ),
                 ],
               ),
               contentPadding: const EdgeInsets.fromLTRB(8, 12, 4, 12),
               visualDensity: VisualDensity.standard,
             ),
-            ), // GestureDetector
-            if (isExpanded && hasChildren)
-              ..._buildTree(_children[st.id!]!),
-          ],
-        ),
-      ));
+          ), // GestureDetector
+          if (isExpanded && hasChildren) ..._buildTree(_children[st.id!]!),
+        ],
+      ),
+    );
+  }
+
+  List<Widget> _buildTree(List<SubTask> items) {
+    if (items.length <= 1) {
+      final list = <Widget>[];
+      for (int i = 0; i < items.length; i++) {
+        final st = items[i];
+        final hasChildren = _children.containsKey(st.id);
+        final isExpanded = _expanded.contains(st.id);
+        final indent = st.level * 24.0;
+        list.add(
+          _buildSubTaskTile(
+            st,
+            i,
+            items.length,
+            hasChildren,
+            isExpanded,
+            indent,
+          ),
+        );
+      }
+      return list;
     }
-    return list;
+    return [
+      ReorderableListView(
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        buildDefaultDragHandles: true,
+        onReorderItem: (oldIdx, newIdx) =>
+            _onSubTaskReorder(items, oldIdx, newIdx),
+        children: items.asMap().entries.map((e) {
+          final i = e.key;
+          final st = e.value;
+          final hasChildren = _children.containsKey(st.id);
+          final isExpanded = _expanded.contains(st.id);
+          final indent = st.level * 24.0;
+          return _buildSubTaskTile(
+            st,
+            i,
+            items.length,
+            hasChildren,
+            isExpanded,
+            indent,
+            key: ValueKey(st.id),
+          );
+        }).toList(),
+      ),
+    ];
   }
 
   @override
@@ -611,72 +859,160 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     final done = _countDone();
     final treeItems = _buildTree(_roots);
 
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(widget.task.title),
-        actions: [
-          Center(child: Text('$done/$total 完成')),
-          const SizedBox(width: 16),
-        ],
-      ),
-      body: Column(
-        children: [
-          if (widget.task.note.isNotEmpty)
-            Container(
-              width: double.infinity,
-              margin: const EdgeInsets.all(12),
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: Colors.indigo.shade50,
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('📝 备忘录', style: TextStyle(fontSize: 12, color: Colors.indigo.shade400)),
-                  const SizedBox(height: 6),
-                  Text(widget.task.note, style: const TextStyle(fontSize: 14)),
-                ],
-              ),
-            ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: Row(children: [
-              const Text('子任务', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
-              const Spacer(),
-              Text('$total 项', style: TextStyle(color: Colors.grey.shade500, fontSize: 13)),
-            ]),
+    return Shortcuts(
+      shortcuts: <ShortcutActivator, Intent>{
+        SingleActivator(LogicalKeyboardKey.keyT, control: true):
+            const _FocusSubInputIntent(),
+        SingleActivator(LogicalKeyboardKey.keyN, control: true):
+            const _FocusSubInputIntent(),
+      },
+      child: Actions(
+        actions: <Type, Action<Intent>>{
+          _FocusSubInputIntent: CallbackAction<_FocusSubInputIntent>(
+            onInvoke: (_) {
+              _inputFocus.requestFocus();
+              return null;
+            },
           ),
-          Expanded(
-            child: _roots.isEmpty
-                ? Center(child: Text('还没有子任务，在下方添加', style: TextStyle(color: Colors.grey.shade400)))
-                : ListView(padding: const EdgeInsets.symmetric(horizontal: 8), children: treeItems),
-          ),
-          Container(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 20),
-            decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.surface,
-              boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 4, offset: const Offset(0, -1))],
-            ),
-            child: Row(children: [
-              Expanded(
-                child: TextField(
-                  controller: _inputController,
-                  focusNode: _inputFocus,
-                  textInputAction: TextInputAction.done,
-                  decoration: const InputDecoration(
-                    hintText: '添加子任务...',
-                    border: OutlineInputBorder(),
-                    contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        },
+        child: Scaffold(
+          appBar: AppBar(
+            title: Text(_currentTask.title),
+            actions: [
+              // 只读展示当前安排分组；分类一律在列表/安排视图的菜单里改
+              if (_currentTask.isArranged)
+                Center(
+                  child: Padding(
+                    padding: const EdgeInsets.only(right: 12),
+                    child: Chip(
+                      avatar: const Icon(Icons.view_week_outlined, size: 16),
+                      label: Text(_currentTask.arrangementLabel),
+                      visualDensity: VisualDensity.compact,
+                    ),
                   ),
-                  onSubmitted: (_) => _addRoot(),
+                ),
+              Center(child: Text('$done/$total 完成')),
+              if (widget.onEditTask != null)
+                TextButton(
+                  onPressed: () async {
+                    final updated = await widget.onEditTask!(_currentTask);
+                    if (mounted && updated != null) {
+                      setState(() => _currentTask = updated);
+                    }
+                  },
+                  child: const Text('编辑'),
+                ),
+              const SizedBox(width: 16),
+            ],
+          ),
+          body: Column(
+            children: [
+              if (_currentTask.note.isNotEmpty)
+                Container(
+                  width: double.infinity,
+                  margin: const EdgeInsets.all(12),
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: Colors.indigo.shade50,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '📝 备忘录',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.indigo.shade400,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        _currentTask.note,
+                        style: const TextStyle(fontSize: 14),
+                      ),
+                    ],
+                  ),
+                ),
+              Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 8,
+                ),
+                child: Row(
+                  children: [
+                    const Text(
+                      '子任务',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 15,
+                      ),
+                    ),
+                    const Spacer(),
+                    Text(
+                      '$total 项',
+                      style: TextStyle(
+                        color: Colors.grey.shade500,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ],
                 ),
               ),
-              const SizedBox(width: 8),
-              IconButton.filled(onPressed: _addRoot, icon: const Icon(Icons.add)),
-            ]),
+              Expanded(
+                child: _roots.isEmpty
+                    ? Center(
+                        child: Text(
+                          '还没有子任务，在下方添加',
+                          style: TextStyle(color: Colors.grey.shade400),
+                        ),
+                      )
+                    : ListView(
+                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                        children: treeItems,
+                      ),
+              ),
+              Container(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 20),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.surface,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black12,
+                      blurRadius: 4,
+                      offset: const Offset(0, -1),
+                    ),
+                  ],
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: _inputController,
+                        focusNode: _inputFocus,
+                        textInputAction: TextInputAction.done,
+                        decoration: const InputDecoration(
+                          hintText: '添加子任务...',
+                          border: OutlineInputBorder(),
+                          contentPadding: EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 10,
+                          ),
+                        ),
+                        onSubmitted: (_) => _addRoot(),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    IconButton.filled(
+                      onPressed: _addRoot,
+                      icon: const Icon(Icons.add),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }

@@ -1,8 +1,10 @@
+import '../utils/sync_id.dart';
+
 /// 备忘录模型——纯文本便签，支持5级嵌套
 class Memo {
   final int? id;
-  final int? parentId;   // null=根节点
-  final int level;        // 0~4，共5层
+  final int? parentId; // null=根节点
+  final int level; // 0~4，共5层
   final String content;
   final String category;
   final int sortOrder;
@@ -12,6 +14,10 @@ class Memo {
   final DateTime? deletedAt;
   final DateTime createdAt;
   final DateTime updatedAt;
+  final DateTime? pinnedAt;
+  final DateTime? archivedAt;
+  final String syncId;
+  final int revision;
 
   Memo({
     this.id,
@@ -26,16 +32,27 @@ class Memo {
     this.deletedAt,
     DateTime? createdAt,
     DateTime? updatedAt,
-  })  : createdAt = createdAt ?? DateTime.now(),
-        updatedAt = updatedAt ?? DateTime.now();
+    this.pinnedAt,
+    this.archivedAt,
+    String? syncId,
+    this.revision = 1,
+  }) : createdAt = createdAt ?? DateTime.now(),
+       updatedAt = updatedAt ?? DateTime.now(),
+       syncId = syncId ?? SyncId.generate();
 
   bool get isDeleted => deletedAt != null;
   bool get canHaveChildren => level < 4;
+  bool get isPinned => pinnedAt != null;
+  bool get isArchived => archivedAt != null;
 
   bool get isOverdue {
     if (dueDate == null) return false;
     final dueDay = DateTime(dueDate!.year, dueDate!.month, dueDate!.day);
-    final today = DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day);
+    final today = DateTime(
+      DateTime.now().year,
+      DateTime.now().month,
+      DateTime.now().day,
+    );
     return dueDay.isBefore(today);
   }
 
@@ -53,6 +70,10 @@ class Memo {
       'deleted_at': deletedAt?.toIso8601String(),
       'created_at': createdAt.toIso8601String(),
       'updated_at': updatedAt.toIso8601String(),
+      'pinned_at': pinnedAt?.toIso8601String(),
+      'archived_at': archivedAt?.toIso8601String(),
+      'sync_id': syncId,
+      'revision': revision,
     };
   }
 
@@ -65,11 +86,23 @@ class Memo {
       category: map['category'] ?? '紧急+重要+必须',
       sortOrder: map['sort_order'] ?? 0,
       dueDate: map['due_date'] != null ? DateTime.parse(map['due_date']) : null,
-      reminderTime: map['reminder_time'] != null ? DateTime.parse(map['reminder_time']) : null,
+      reminderTime: map['reminder_time'] != null
+          ? DateTime.parse(map['reminder_time'])
+          : null,
       repeatType: map['repeat_type'] as String?,
-      deletedAt: map['deleted_at'] != null ? DateTime.parse(map['deleted_at']) : null,
+      deletedAt: map['deleted_at'] != null
+          ? DateTime.parse(map['deleted_at'])
+          : null,
       createdAt: DateTime.parse(map['created_at']),
       updatedAt: DateTime.parse(map['updated_at']),
+      pinnedAt: map['pinned_at'] != null
+          ? DateTime.parse(map['pinned_at'])
+          : null,
+      archivedAt: map['archived_at'] != null
+          ? DateTime.parse(map['archived_at'])
+          : null,
+      syncId: map['sync_id'] as String?,
+      revision: map['revision'] ?? 1,
     );
   }
 
@@ -91,6 +124,12 @@ class Memo {
     bool clearDeletedAt = false,
     DateTime? createdAt,
     DateTime? updatedAt,
+    DateTime? pinnedAt,
+    DateTime? archivedAt,
+    bool clearPinnedAt = false,
+    bool clearArchivedAt = false,
+    String? syncId,
+    int? revision,
   }) {
     return Memo(
       id: id ?? this.id,
@@ -100,11 +139,17 @@ class Memo {
       category: category ?? this.category,
       sortOrder: sortOrder ?? this.sortOrder,
       dueDate: clearDueDate ? null : (dueDate ?? this.dueDate),
-      reminderTime: clearReminderTime ? null : (reminderTime ?? this.reminderTime),
+      reminderTime: clearReminderTime
+          ? null
+          : (reminderTime ?? this.reminderTime),
       repeatType: clearRepeatType ? null : (repeatType ?? this.repeatType),
       deletedAt: clearDeletedAt ? null : (deletedAt ?? this.deletedAt),
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
+      pinnedAt: clearPinnedAt ? null : (pinnedAt ?? this.pinnedAt),
+      archivedAt: clearArchivedAt ? null : (archivedAt ?? this.archivedAt),
+      syncId: syncId ?? this.syncId,
+      revision: revision ?? (this.revision + 1),
     );
   }
 }

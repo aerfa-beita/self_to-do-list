@@ -1,0 +1,80 @@
+{
+  "schemaVersion": 1,
+  "canvas": {
+    "width": 512,
+    "height": 512
+  },
+  "states": {
+    "idle": {
+      "reference": "actions/idle.png",
+      "loop": true,
+      "notes": "gentle breathing and tiny body sway"
+    },
+    "walk_left": {
+      "reference": "actions/walk_left.png",
+      "loop": true,
+      "direction": "left",
+      "notes": "lock planted foot; opposite arm and leg motion"
+    },
+    "walk_right": {
+      "reference": "actions/walk_right.png",
+      "loop": true,
+      "direction": "right",
+      "notes": "independent right-facing art; never mirror left assets"
+    },
+    "dragged": {
+      "reference": "actions/dragged.png",
+      "loop": true,
+      "notes": "both legs float slightly with soft bent knees"
+    },
+    "reach": {
+      "reference": "actions/reach.png",
+      "loop": false,
+      "notes": "slow down, bend hips and knees, reach toward task"
+    },
+    "lift": {
+      "reference": "actions/lift.png",
+      "loop": false,
+      "notes": "both hands grip card before the body rises"
+    },
+    "carry_left": {
+      "reference": "actions/carry_left.png",
+      "loop": true,
+      "direction": "left",
+      "notes": "task card stays between both hand anchors"
+    },
+    "carry_right": {
+      "reference": "actions/carry_right.png",
+      "loop": true,
+      "direction": "right",
+      "notes": "task card stays between both hand anchors"
+    },
+    "put_down": {
+      "reference": "actions/put_down.png",
+      "loop": false,
+      "notes": "hands release only after the card touches the nest"
+    },
+    "celebrate": {
+      "reference": "actions/celebrate.png",
+      "loop": false,
+      "notes": "small jump, bent knees, earring bounce"
+    },
+    "sleepy": {
+      "reference": "actions/sleepy.png",
+      "loop": true,
+      "notes": "yawn, lowered shoulders, relaxed knees"
+    },
+    "reminder": {
+      "reference": "actions/reminder.png",
+      "loop": false,
+      "notes": "gentle handbell shake with subtle counter-lean"
+    }
+  },
+  "constraints": {
+    "footPlant": "A planted foot contact anchor must remain fixed until toe-off.",
+    "gait": "Arms and opposite legs swing in opposite phases; knees bend; torso bobs slightly.",
+    "startStop": "Lean forward before acceleration and return upright after stopping.",
+    "taskBinding": "The task card remains bound between both hand grip anchors around taskCarryAnchor.",
+    "direction": "Left and right art are independent. Do not mirror assets at runtime."
+  }
+}

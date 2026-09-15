@@ -4,9 +4,18 @@ import 'package:flutter/material.dart';
 Color categoryColor(String name) {
   final hash = name.codeUnits.fold<int>(0, (s, c) => s + c) % 12;
   const palette = [
-    Colors.blueGrey, Colors.blue, Colors.green, Colors.orange,
-    Colors.red, Colors.purple, Colors.teal, Colors.indigo,
-    Colors.amber, Colors.cyan, Colors.pink, Colors.brown,
+    Colors.blueGrey,
+    Colors.blue,
+    Colors.green,
+    Colors.orange,
+    Colors.red,
+    Colors.purple,
+    Colors.teal,
+    Colors.indigo,
+    Colors.amber,
+    Colors.cyan,
+    Colors.pink,
+    Colors.brown,
   ];
   return palette[hash];
 }
@@ -15,7 +24,13 @@ Color categoryColor(String name) {
 String fmtDate(DateTime date) {
   final now = DateTime.now();
   final diff = date.difference(DateTime(now.year, now.month, now.day)).inDays;
-  final base = diff == 0 ? '今天' : diff == 1 ? '明天' : diff == -1 ? '昨天' : '${date.month}/${date.day}';
+  final base = diff == 0
+      ? '今天'
+      : diff == 1
+      ? '明天'
+      : diff == -1
+      ? '昨天'
+      : '${date.month}/${date.day}';
   return base;
 }
 

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../models/task.dart';
 import '../models/sub_task.dart';
 import '../utils/date_utils.dart';
@@ -10,6 +11,7 @@ class TaskItem extends StatelessWidget {
   final VoidCallback onTap;
   final VoidCallback onDelete;
   final VoidCallback onEdit;
+  final ValueChanged<String>? onMoveToMode;
   final VoidCallback? onRestore;
   final VoidCallback? onPermanentDelete;
   final VoidCallback? onMoveUp;
@@ -27,6 +29,9 @@ class TaskItem extends StatelessWidget {
   final bool selectMode;
   final bool isSelected;
   final VoidCallback? onSelectToggle;
+  final VoidCallback? onComplete;
+  final bool reorderable;
+  final int? reorderIndex;
 
   const TaskItem({
     super.key,
@@ -36,6 +41,7 @@ class TaskItem extends StatelessWidget {
     required this.onTap,
     required this.onDelete,
     required this.onEdit,
+    this.onMoveToMode,
     this.onRestore,
     this.onPermanentDelete,
     this.onMoveUp,
@@ -52,128 +58,200 @@ class TaskItem extends StatelessWidget {
     this.selectMode = false,
     this.isSelected = false,
     this.onSelectToggle,
+    this.onComplete,
+    this.reorderable = false,
+    this.reorderIndex,
   });
+
+  void _showTaskMenu(Offset position, BuildContext context) {
+    if (task.isDeleted) return;
+    showMenu<String>(
+      context: context,
+      position: RelativeRect.fromLTRB(
+        position.dx,
+        position.dy,
+        position.dx,
+        position.dy,
+      ),
+      items: [
+        const PopupMenuItem(value: 'edit', child: Text('编辑')),
+        if (onMoveToMode != null)
+          if (task.isArranged)
+            const PopupMenuItem(value: 'move_back', child: Text('移回列表'))
+          else ...[
+            const PopupMenuItem(value: 'plan_now', child: Text('移到：现在')),
+            const PopupMenuItem(value: 'plan_next', child: Text('移到：接下来')),
+            const PopupMenuItem(value: 'plan_later', child: Text('移到：稍后')),
+          ],
+        const PopupMenuItem(value: 'delete', child: Text('删除')),
+        if (onMoveUp != null && canMoveUp)
+          const PopupMenuItem(value: 'move_up', child: Text('⬆ 上移')),
+        if (onMoveDown != null && canMoveDown)
+          const PopupMenuItem(value: 'move_down', child: Text('⬇ 下移')),
+      ],
+    ).then((v) {
+      if (v == null) return;
+      if (v == 'edit') onEdit();
+      if (v == 'move_back') onMoveToMode?.call(Task.normalMode);
+      if (v == 'plan_now') onMoveToMode?.call(Task.planNowMode);
+      if (v == 'plan_next') onMoveToMode?.call(Task.planNextMode);
+      if (v == 'plan_later') onMoveToMode?.call(Task.planLaterMode);
+      if (v == 'delete') onDelete();
+      if (v == 'move_up') onMoveUp?.call();
+      if (v == 'move_down') onMoveDown?.call();
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
     final hasProgress = totalCount > 0;
-    final allDone = hasProgress && doneCount == totalCount;
+    final allDone =
+        task.isCompleted || (hasProgress && doneCount == totalCount);
     final catColor = categoryColor(task.category);
     final hasSubtasks = subTasks.isNotEmpty;
+    final isNarrow = MediaQuery.sizeOf(context).width < 600;
 
-    return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+    if (MediaQuery.sizeOf(context).width < 900) {
+      return _buildCompactTask(context);
+    }
+
+    final card = Card(
+      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 3),
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(10),
+        side: BorderSide(color: Theme.of(context).dividerColor.withAlpha(90)),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           InkWell(
-            onTap: task.isDeleted ? null : (selectMode ? onSelectToggle : onTap),
-            onSecondaryTapUp: selectMode ? null : (task.isDeleted ? null : (details) {
-              showMenu<String>(
-                context: context,
-                position: RelativeRect.fromLTRB(details.globalPosition.dx, details.globalPosition.dy, details.globalPosition.dx, details.globalPosition.dy),
-                items: [
-                  const PopupMenuItem(value: 'edit', child: Text('编辑')),
-                  const PopupMenuItem(value: 'delete', child: Text('删除')),
-                  if (onMoveUp != null && canMoveUp)
-                    const PopupMenuItem(value: 'move_up', child: Text('⬆ 上移')),
-                  if (onMoveDown != null && canMoveDown)
-                    const PopupMenuItem(value: 'move_down', child: Text('⬇ 下移')),
-                ],
-              ).then((v) {
-                if (v == null) return;
-                if (v == 'edit') onEdit();
-                if (v == 'delete') onDelete();
-                if (v == 'move_up') onMoveUp?.call();
-                if (v == 'move_down') onMoveDown?.call();
-              });
-            }),
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(12), bottom: Radius.zero),
+            onTap: task.isDeleted
+                ? null
+                : (selectMode ? onSelectToggle : onTap),
+            onLongPress: task.isDeleted ? null : onSelectToggle,
+            onSecondaryTapUp: selectMode
+                ? null
+                : (task.isDeleted
+                      ? null
+                      : (details) {
+                          _showTaskMenu(details.globalPosition, context);
+                        }),
+            borderRadius: BorderRadius.circular(10),
             child: Padding(
-              padding: const EdgeInsets.all(18),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+              child: Row(
                 children: [
-                  Row(
-                    children: [
-                      if (selectMode)
-                        Checkbox(
-                          value: isSelected,
-                          onChanged: (_) => onSelectToggle?.call(),
-                        ),
-                      Expanded(
-                        child: Text(
-                          task.title,
-                          style: TextStyle(
-                            fontSize: 16, fontWeight: FontWeight.w600,
-                            decoration: (allDone || task.isDeleted) ? TextDecoration.lineThrough : null,
-                            color: task.isDeleted ? Colors.grey : (allDone ? Colors.grey : null),
-                          ),
-                        ),
+                  if (selectMode)
+                    Checkbox(
+                      value: isSelected,
+                      visualDensity: VisualDensity.compact,
+                      onChanged: (_) => onSelectToggle?.call(),
+                    )
+                  else if (!task.isDeleted)
+                    IconButton(
+                      visualDensity: VisualDensity.compact,
+                      tooltip: allDone ? '已完成' : '完成',
+                      onPressed: onComplete,
+                      icon: Icon(
+                        allDone
+                            ? Icons.check_circle
+                            : Icons.radio_button_unchecked,
+                        color: allDone ? Colors.green : Colors.grey.shade500,
+                        size: 20,
                       ),
-                      _buildMenu(allDone),
-                    ],
+                    ),
+                  Expanded(
+                    child: Text(
+                      task.title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                        decoration: (allDone || task.isDeleted)
+                            ? TextDecoration.lineThrough
+                            : null,
+                        color: task.isDeleted || allDone ? Colors.grey : null,
+                      ),
+                    ),
                   ),
-                  if (task.note.isNotEmpty) ...[
-                    const SizedBox(height: 4),
-                    Text(task.note, maxLines: 2, overflow: TextOverflow.ellipsis,
-                        style: TextStyle(fontSize: 13, color: Colors.grey.shade600)),
-                  ],
-                  if (task.dueDate != null && !task.isDeleted) ...[
-                    const SizedBox(height: 4),
-                    Row(children: [
-                      Icon(Icons.event, size: 12, color: task.isOverdue ? Colors.red : Colors.grey.shade500),
-                      const SizedBox(width: 4),
-                      Text(
-                        task.isOverdue ? '已过期 ${fmtDateTime(task.dueDate, task.reminderTime)}' : fmtDateTime(task.dueDate, task.reminderTime),
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: task.isOverdue ? Colors.red : Colors.grey.shade500,
-                          fontWeight: task.isOverdue ? FontWeight.w600 : FontWeight.normal,
+                  const SizedBox(width: 8),
+                  if (task.isArranged) ...[
+                    if (isNarrow)
+                      Tooltip(
+                        message: '已安排到${task.arrangementLabel}',
+                        child: Icon(
+                          Icons.account_tree_outlined,
+                          size: 16,
+                          color: Theme.of(context).colorScheme.primary,
                         ),
+                      )
+                    else
+                      _chip(
+                        task.arrangementLabel,
+                        Theme.of(context).colorScheme.primary,
                       ),
-                    ]),
+                    const SizedBox(width: 6),
                   ],
-                  const SizedBox(height: 8),
-                  Row(children: [
-                    _chip(task.category, catColor),
-                    if (task.isDeleted && task.deletedAt != null) ...[
-                      const SizedBox(width: 8),
-                      Text('剩余$_remainingDays天', style: TextStyle(fontSize: 11, color: Colors.red.shade400)),
-                    ],
-                    const Spacer(),
-                    if (!task.isDeleted)
-                      InkWell(
-                        onTap: onToggleExpand,
-                        borderRadius: BorderRadius.circular(6),
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              if (allDone)
-                                const Icon(Icons.check_circle, size: 14, color: Colors.green)
-                              else if (hasProgress)
-                                Icon(Icons.checklist, size: 14, color: Colors.grey.shade500),
-                              const SizedBox(width: 4),
+                  _chip(task.category, catColor),
+                  if (!isNarrow && task.dueDate != null && !task.isDeleted) ...[
+                    const SizedBox(width: 8),
+                    Icon(
+                      Icons.event_outlined,
+                      size: 13,
+                      color: task.isOverdue ? Colors.red : Colors.grey.shade500,
+                    ),
+                    const SizedBox(width: 3),
+                    Text(
+                      fmtDateTime(task.dueDate, task.reminderTime),
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: task.isOverdue
+                            ? Colors.red
+                            : Colors.grey.shade600,
+                      ),
+                    ),
+                  ],
+                  const SizedBox(width: 6),
+                  if (!task.isDeleted)
+                    InkWell(
+                      onTap: onToggleExpand,
+                      borderRadius: BorderRadius.circular(6),
+                      child: Padding(
+                        padding: const EdgeInsets.all(4),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            if (!isNarrow)
                               Text(
-                                allDone ? '已完成' : '$doneCount/$totalCount',
+                                '$doneCount/$totalCount',
                                 style: TextStyle(
-                                  fontSize: 12,
-                                  color: allDone ? Colors.green : Colors.grey.shade600,
-                                  fontWeight: allDone ? FontWeight.w600 : FontWeight.normal,
+                                  fontSize: 11,
+                                  color: Colors.grey.shade600,
                                 ),
                               ),
-                              const SizedBox(width: 2),
-                              Icon(
-                                isExpanded ? Icons.expand_less : Icons.expand_more,
-                                size: 16, color: Colors.grey.shade400,
-                              ),
-                            ],
-                          ),
+                            Icon(
+                              isExpanded
+                                  ? Icons.expand_less
+                                  : Icons.expand_more,
+                              size: 16,
+                              color: Colors.grey.shade500,
+                            ),
+                          ],
                         ),
                       ),
-                  ]),
+                    ),
+                  if (task.isDeleted && task.deletedAt != null) ...[
+                    Text(
+                      '删除于 ${task.deletedAt!.month}月${task.deletedAt!.day}日',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: Colors.red.shade400,
+                      ),
+                    ),
+                  ],
+                  _buildMenu(allDone),
                 ],
               ),
             ),
@@ -184,12 +262,19 @@ class TaskItem extends StatelessWidget {
             Container(
               decoration: BoxDecoration(
                 color: Colors.grey.shade50,
-                borderRadius: const BorderRadius.vertical(bottom: Radius.circular(12)),
+                borderRadius: const BorderRadius.vertical(
+                  bottom: Radius.circular(12),
+                ),
               ),
               child: Column(
-                children: subTasks.asMap().entries.map((e) =>
-                  _subTaskRow(e.value, e.key, subTasks.length, context)
-                ).toList(),
+                children: subTasks
+                    .asMap()
+                    .entries
+                    .map(
+                      (e) =>
+                          _subTaskRow(e.value, e.key, subTasks.length, context),
+                    )
+                    .toList(),
               ),
             ),
           if (isExpanded && !hasSubtasks)
@@ -198,13 +283,285 @@ class TaskItem extends StatelessWidget {
               padding: const EdgeInsets.fromLTRB(14, 0, 14, 12),
               decoration: BoxDecoration(
                 color: Colors.grey.shade50,
-                borderRadius: const BorderRadius.vertical(bottom: Radius.circular(12)),
+                borderRadius: const BorderRadius.vertical(
+                  bottom: Radius.circular(12),
+                ),
               ),
-              child: Text('还没有子任务，点击卡片进入详情添加',
-                  style: TextStyle(fontSize: 16, color: Colors.grey.shade400)),
+              child: Text(
+                '还没有子任务，点击卡片进入详情添加',
+                style: TextStyle(fontSize: 16, color: Colors.grey.shade400),
+              ),
             ),
         ],
       ),
+    );
+    if (task.isDeleted || selectMode) return card;
+    return Dismissible(
+      key: ValueKey('task-swipe-${task.id}'),
+      direction: DismissDirection.endToStart,
+      background: const SizedBox.shrink(),
+      secondaryBackground: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 3),
+        padding: const EdgeInsets.only(right: 22),
+        alignment: Alignment.centerRight,
+        decoration: BoxDecoration(
+          color: Colors.red,
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: const Row(
+          mainAxisAlignment: MainAxisAlignment.end,
+          children: [
+            Text('更多操作', style: TextStyle(color: Colors.white)),
+            SizedBox(width: 8),
+            Icon(Icons.more_horiz, color: Colors.white),
+          ],
+        ),
+      ),
+      confirmDismiss: (direction) async {
+        final action = await showModalBottomSheet<String>(
+          context: context,
+          builder: (sheetContext) => SafeArea(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                ListTile(
+                  leading: const Icon(Icons.edit_outlined),
+                  title: const Text('编辑'),
+                  onTap: () => Navigator.pop(sheetContext, 'edit'),
+                ),
+                if (onMoveToMode != null)
+                  if (task.isArranged)
+                    ListTile(
+                      leading: const Icon(Icons.view_list_outlined),
+                      title: const Text('移回列表'),
+                      onTap: () => Navigator.pop(sheetContext, 'move_back'),
+                    )
+                  else ...[
+                    ListTile(
+                      leading: const Icon(Icons.play_arrow_outlined),
+                      title: const Text('移到：现在'),
+                      onTap: () => Navigator.pop(sheetContext, 'plan_now'),
+                    ),
+                    ListTile(
+                      leading: const Icon(Icons.schedule_outlined),
+                      title: const Text('移到：接下来'),
+                      onTap: () => Navigator.pop(sheetContext, 'plan_next'),
+                    ),
+                    ListTile(
+                      leading: const Icon(Icons.hourglass_bottom_outlined),
+                      title: const Text('移到：稍后'),
+                      onTap: () => Navigator.pop(sheetContext, 'plan_later'),
+                    ),
+                  ],
+                ListTile(
+                  leading: const Icon(Icons.delete_outline, color: Colors.red),
+                  title: const Text('删除', style: TextStyle(color: Colors.red)),
+                  onTap: () => Navigator.pop(sheetContext, 'delete'),
+                ),
+              ],
+            ),
+          ),
+        );
+        if (action == 'edit') onEdit();
+        if (action == 'move_back') onMoveToMode?.call(Task.normalMode);
+        if (action == 'plan_now') onMoveToMode?.call(Task.planNowMode);
+        if (action == 'plan_next') onMoveToMode?.call(Task.planNextMode);
+        if (action == 'plan_later') onMoveToMode?.call(Task.planLaterMode);
+        if (action == 'delete') onDelete();
+        return false;
+      },
+      child: card,
+    );
+  }
+
+  Widget _buildCompactTask(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    final hasProgress = totalCount > 0;
+    final allDone =
+        task.isCompleted || (hasProgress && doneCount == totalCount);
+    final catColor = categoryColor(task.category);
+    final canDrag =
+        reorderable && reorderIndex != null && !task.isDeleted && !selectMode;
+    final meta = <Widget>[
+      _compactMeta(task.category, catColor),
+      if (task.dueDate != null && !task.isDeleted)
+        _compactMeta(
+          fmtDateTime(task.dueDate, task.reminderTime),
+          task.isOverdue ? colors.error : colors.onSurfaceVariant,
+        ),
+      if (task.deletedAt != null)
+        _compactMeta(
+          '删除于 ${task.deletedAt!.month}月${task.deletedAt!.day}日',
+          colors.onSurfaceVariant,
+        ),
+      if (hasProgress)
+        _compactMeta('子任务 $doneCount/$totalCount', colors.onSurfaceVariant),
+    ];
+    final card = Card(
+      margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: colors.outlineVariant.withAlpha(130)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          if (selectMode)
+            Checkbox(
+              value: isSelected,
+              visualDensity: VisualDensity.compact,
+              onChanged: (_) => onSelectToggle?.call(),
+            )
+          else if (!task.isDeleted)
+            SizedBox(
+              width: 48,
+              height: 56,
+              child: IconButton(
+                tooltip: allDone ? '已完成' : '完成',
+                onPressed: onComplete,
+                icon: Icon(
+                  allDone ? Icons.check_circle : Icons.radio_button_unchecked,
+                  color: allDone ? Colors.green : colors.onSurfaceVariant,
+                  size: 22,
+                ),
+              ),
+            ),
+          Expanded(
+            child: InkWell(
+              onTap: task.isDeleted
+                  ? null
+                  : (selectMode ? onSelectToggle : onTap),
+              onLongPress: task.isDeleted ? null : onSelectToggle,
+              borderRadius: BorderRadius.circular(12),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      task.title,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 15,
+                        height: 1.25,
+                        fontWeight: FontWeight.w600,
+                        decoration: allDone && !task.isDeleted
+                            ? TextDecoration.lineThrough
+                            : null,
+                        color: task.isDeleted || allDone
+                            ? colors.onSurfaceVariant
+                            : null,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Wrap(spacing: 6, runSpacing: 2, children: meta),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          if (!selectMode)
+            SizedBox(width: 48, height: 56, child: _buildMenu(allDone)),
+          if (canDrag)
+            Listener(
+              onPointerDown: (_) => HapticFeedback.selectionClick(),
+              child: ReorderableDelayedDragStartListener(
+                index: reorderIndex!,
+                child: SizedBox(
+                  width: 48,
+                  height: 56,
+                  child: Center(
+                    child: Icon(
+                      Icons.drag_handle,
+                      color: colors.onSurfaceVariant,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+    if (task.isDeleted || selectMode) return card;
+    return Dismissible(
+      key: ValueKey('task-swipe-${task.id}'),
+      direction: DismissDirection.endToStart,
+      background: const SizedBox.shrink(),
+      secondaryBackground: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+        padding: const EdgeInsets.only(right: 20),
+        alignment: Alignment.centerRight,
+        decoration: BoxDecoration(
+          color: Colors.red,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: const Icon(Icons.more_horiz, color: Colors.white),
+      ),
+      confirmDismiss: (direction) async {
+        final action = await showModalBottomSheet<String>(
+          context: context,
+          builder: (sheetContext) => SafeArea(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                ListTile(
+                  leading: const Icon(Icons.edit_outlined),
+                  title: const Text('编辑'),
+                  onTap: () => Navigator.pop(sheetContext, 'edit'),
+                ),
+                if (onMoveToMode != null)
+                  if (task.isArranged)
+                    ListTile(
+                      leading: const Icon(Icons.view_list_outlined),
+                      title: const Text('移回列表'),
+                      onTap: () => Navigator.pop(sheetContext, 'move_back'),
+                    )
+                  else ...[
+                    ListTile(
+                      leading: const Icon(Icons.play_arrow_outlined),
+                      title: const Text('移到：现在'),
+                      onTap: () => Navigator.pop(sheetContext, 'plan_now'),
+                    ),
+                    ListTile(
+                      leading: const Icon(Icons.schedule_outlined),
+                      title: const Text('移到：接下来'),
+                      onTap: () => Navigator.pop(sheetContext, 'plan_next'),
+                    ),
+                    ListTile(
+                      leading: const Icon(Icons.hourglass_bottom_outlined),
+                      title: const Text('移到：稍后'),
+                      onTap: () => Navigator.pop(sheetContext, 'plan_later'),
+                    ),
+                  ],
+                ListTile(
+                  leading: const Icon(Icons.delete_outline, color: Colors.red),
+                  title: const Text('删除', style: TextStyle(color: Colors.red)),
+                  onTap: () => Navigator.pop(sheetContext, 'delete'),
+                ),
+              ],
+            ),
+          ),
+        );
+        if (action == 'edit') onEdit();
+        if (action == 'move_back') onMoveToMode?.call(Task.normalMode);
+        if (action == 'plan_now') onMoveToMode?.call(Task.planNowMode);
+        if (action == 'plan_next') onMoveToMode?.call(Task.planNextMode);
+        if (action == 'plan_later') onMoveToMode?.call(Task.planLaterMode);
+        if (action == 'delete') onDelete();
+        return false;
+      },
+      child: card,
+    );
+  }
+
+  Widget _compactMeta(String label, Color color) {
+    return Text(
+      label,
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      style: TextStyle(fontSize: 11, color: color),
     );
   }
 
@@ -223,47 +580,76 @@ class TaskItem extends StatelessWidget {
   Widget _chip(String label, Color color) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-      decoration: BoxDecoration(color: color.withAlpha(30), borderRadius: BorderRadius.circular(10)),
-      child: Text(label, style: TextStyle(fontSize: 12, color: color)),
+      decoration: BoxDecoration(
+        color: color.withAlpha(30),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 84),
+        child: Text(
+          label,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(fontSize: 12, color: color),
+        ),
+      ),
     );
   }
 
   Widget _buildMenu(bool allDone) {
     if (task.isDeleted) {
       return PopupMenuButton<String>(
+        key: Key('task-more-${task.id}'),
+        tooltip: '更多任务操作',
+        icon: const Icon(Icons.more_vert),
+        iconSize: 22,
+        constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
         onSelected: (v) {
           if (v == 'restore') onRestore?.call();
           if (v == 'perm_delete') onPermanentDelete?.call();
         },
         itemBuilder: (_) => [
           const PopupMenuItem(value: 'restore', child: Text('恢复')),
+          const PopupMenuDivider(),
           const PopupMenuItem(value: 'perm_delete', child: Text('永久删除')),
         ],
       );
     }
     return PopupMenuButton<String>(
+      key: Key('task-more-${task.id}'),
+      tooltip: '更多任务操作',
+      icon: const Icon(Icons.more_vert),
+      iconSize: 22,
+      constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
       onSelected: (v) {
         if (v == 'edit') onEdit();
+        if (v == 'move_back') onMoveToMode?.call(Task.normalMode);
+        if (v == 'plan_now') onMoveToMode?.call(Task.planNowMode);
+        if (v == 'plan_next') onMoveToMode?.call(Task.planNextMode);
+        if (v == 'plan_later') onMoveToMode?.call(Task.planLaterMode);
         if (v == 'delete') onDelete();
         if (v == 'move_up') onMoveUp?.call();
         if (v == 'move_down') onMoveDown?.call();
       },
       itemBuilder: (_) => [
         const PopupMenuItem(value: 'edit', child: Text('编辑')),
-        const PopupMenuItem(value: 'delete', child: Text('删除')),
+        if (onMoveToMode != null)
+          if (task.isArranged)
+            const PopupMenuItem(value: 'move_back', child: Text('移回列表'))
+          else ...[
+            const PopupMenuItem(value: 'plan_now', child: Text('移到：现在')),
+            const PopupMenuItem(value: 'plan_next', child: Text('移到：接下来')),
+            const PopupMenuItem(value: 'plan_later', child: Text('移到：稍后')),
+          ],
         if (onMoveUp != null && canMoveUp)
           const PopupMenuItem(value: 'move_up', child: Text('⬆ 上移')),
         if (onMoveDown != null && canMoveDown)
           const PopupMenuItem(value: 'move_down', child: Text('⬇ 下移')),
+        const PopupMenuDivider(),
+        const PopupMenuItem(value: 'delete', child: Text('删除')),
       ],
     );
   }
-
-  String get _remainingDays {
-    if (task.deletedAt == null) return '';
-    return '${15 - DateTime.now().difference(task.deletedAt!).inDays}';
-  }
-
 }
 
 // ── 子任务行（StatefulWidget，MouseRegion hover）──
@@ -300,7 +686,12 @@ class _SubTaskRowWidgetState extends State<_SubTaskRowWidget> {
     final total = widget.total;
     showMenu<String>(
       context: context,
-      position: RelativeRect.fromLTRB(position.dx, position.dy, position.dx, position.dy),
+      position: RelativeRect.fromLTRB(
+        position.dx,
+        position.dy,
+        position.dx,
+        position.dy,
+      ),
       items: [
         if (widget.onMoveSubTaskUp != null && i > 0 && !st.isDeleted)
           const PopupMenuItem(value: 'up', child: Text('⬆ 上移')),
@@ -308,15 +699,26 @@ class _SubTaskRowWidgetState extends State<_SubTaskRowWidget> {
           const PopupMenuItem(value: 'down', child: Text('⬇ 下移')),
         if (st.isDeleted)
           const PopupMenuItem(value: 'restore', child: Text('↩ 恢复')),
-        PopupMenuItem(value: 'delete', child: Text(st.isDeleted ? '🗑 永久删除' : '🗑 删除')),
+        PopupMenuItem(
+          value: 'delete',
+          child: Text(st.isDeleted ? '🗑 永久删除' : '🗑 删除'),
+        ),
       ],
     ).then((v) {
       if (v == null) return;
       switch (v) {
-        case 'up': widget.onMoveSubTaskUp?.call(st); break;
-        case 'down': widget.onMoveSubTaskDown?.call(st); break;
-        case 'restore': widget.onDeleteSubTask?.call(st); break;
-        case 'delete': widget.onDeleteSubTask?.call(st); break;
+        case 'up':
+          widget.onMoveSubTaskUp?.call(st);
+          break;
+        case 'down':
+          widget.onMoveSubTaskDown?.call(st);
+          break;
+        case 'restore':
+          widget.onDeleteSubTask?.call(st);
+          break;
+        case 'delete':
+          widget.onDeleteSubTask?.call(st);
+          break;
       }
     });
   }
@@ -355,8 +757,12 @@ class _SubTaskRowWidgetState extends State<_SubTaskRowWidget> {
                           st.title,
                           style: TextStyle(
                             fontSize: 16,
-                            decoration: (st.isDone || st.isDeleted) ? TextDecoration.lineThrough : null,
-                            color: (st.isDone || st.isDeleted) ? Colors.grey : null,
+                            decoration: (st.isDone || st.isDeleted)
+                                ? TextDecoration.lineThrough
+                                : null,
+                            color: (st.isDone || st.isDeleted)
+                                ? Colors.grey
+                                : null,
                           ),
                         ),
                         if (st.dueDate != null) ...[
@@ -365,8 +771,12 @@ class _SubTaskRowWidgetState extends State<_SubTaskRowWidget> {
                             '${st.isOverdue ? "已过期 " : ""}${fmtDateTime(st.dueDate, st.reminderTime)}',
                             style: TextStyle(
                               fontSize: 11,
-                              color: st.isOverdue ? Colors.red : Colors.grey.shade500,
-                              fontWeight: st.isOverdue ? FontWeight.w600 : FontWeight.normal,
+                              color: st.isOverdue
+                                  ? Colors.red
+                                  : Colors.grey.shade500,
+                              fontWeight: st.isOverdue
+                                  ? FontWeight.w600
+                                  : FontWeight.normal,
                             ),
                           ),
                         ],
@@ -379,20 +789,38 @@ class _SubTaskRowWidgetState extends State<_SubTaskRowWidget> {
                   icon: Icon(Icons.more_vert, color: Colors.grey.shade400),
                   onSelected: (v) {
                     switch (v) {
-                      case 'up': widget.onMoveSubTaskUp?.call(st); break;
-                      case 'down': widget.onMoveSubTaskDown?.call(st); break;
-                      case 'restore': widget.onDeleteSubTask?.call(st); break;
-                      case 'delete': widget.onDeleteSubTask?.call(st); break;
+                      case 'up':
+                        widget.onMoveSubTaskUp?.call(st);
+                        break;
+                      case 'down':
+                        widget.onMoveSubTaskDown?.call(st);
+                        break;
+                      case 'restore':
+                        widget.onDeleteSubTask?.call(st);
+                        break;
+                      case 'delete':
+                        widget.onDeleteSubTask?.call(st);
+                        break;
                     }
                   },
                   itemBuilder: (_) => [
-                    if (widget.onMoveSubTaskUp != null && widget.index > 0 && !st.isDeleted)
+                    if (widget.onMoveSubTaskUp != null &&
+                        widget.index > 0 &&
+                        !st.isDeleted)
                       const PopupMenuItem(value: 'up', child: Text('⬆ 上移')),
-                    if (widget.onMoveSubTaskDown != null && widget.index < widget.total - 1 && !st.isDeleted)
+                    if (widget.onMoveSubTaskDown != null &&
+                        widget.index < widget.total - 1 &&
+                        !st.isDeleted)
                       const PopupMenuItem(value: 'down', child: Text('⬇ 下移')),
                     if (st.isDeleted)
-                      const PopupMenuItem(value: 'restore', child: Text('↩ 恢复')),
-                    PopupMenuItem(value: 'delete', child: Text(st.isDeleted ? '🗑 永久删除' : '🗑 删除')),
+                      const PopupMenuItem(
+                        value: 'restore',
+                        child: Text('↩ 恢复'),
+                      ),
+                    PopupMenuItem(
+                      value: 'delete',
+                      child: Text(st.isDeleted ? '🗑 永久删除' : '🗑 删除'),
+                    ),
                   ],
                 ),
                 const SizedBox(width: 4),

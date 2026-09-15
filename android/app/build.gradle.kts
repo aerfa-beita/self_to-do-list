@@ -31,6 +31,12 @@ android {
             // TODO: Add your own signing config for the release build.
             // Signing with the debug keys for now, so `flutter run --release` works.
             signingConfig = signingConfigs.getByName("debug")
+            // R8 规则：保留 flutter_local_notifications 的 Gson 泛型签名，
+            // 否则 release 包 zonedSchedule 抛 "Missing type parameter"（见 proguard-rules.pro）
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro",
+            )
         }
     }
 }

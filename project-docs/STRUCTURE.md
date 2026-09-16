@@ -10,6 +10,7 @@
 MY_Project/to-do_list/
 ├── README.md                         # GitHub 首页 🆕
 ├── CLAUDE.md                         # 核心交接文档
+├── PRODUCT.md                        # 当前产品目标、页面职责与边界
 ├── DESIGN.md                         # 当前项目视觉与交互事实
 ├── pubspec.yaml
 ├── .gitignore
@@ -25,10 +26,11 @@ MY_Project/to-do_list/
 │   └── assets/
 │       ├── chibi-companion-model-sheet.png # Q版人物建模设定稿
 │       ├── 安排与桌面小部件方案.svg/.png # 已确认的应用与小部件设计图
+│       ├── 安排页方案A/B*.png         # 9/16 安排页方向稿与 B 方案实际组件验收图
 │       └── mascot_2_5d/              # 最终组装/编号/动作验收图
 ├── project-docs/                     # 索引/结构/统计 🆕
 ├── lib/
-│   ├── main.dart                     # 入口 + DI + Todo/备忘录自适应导航
+│   ├── main.dart                     # 入口 + DI + “安排”双层顶部 + Todo/备忘录自适应导航
 │   ├── database/database.dart        # DB v23 + 升级前备份 + 稳定Windows路径/迁移 + 同步队列
 │   ├── models/  (3个: task/sub_task/memo)  # 同步元数据/状态来源/心力/置顶归档
 │   ├── repositories/  (6个)
@@ -51,7 +53,7 @@ MY_Project/to-do_list/
 │   │   └── sync_status.dart
 │   ├── screens/
 │   │   ├── todo_screen.dart          # 来源状态视图 + 历史事件倒序 + 页面记忆与批量操作
-│   │   ├── flow_screen.dart          # 阶段/固定七天本周 + 长按排序 + 跨日/同步菜单
+│   │   ├── flow_screen.dart          # 紧凑摘要 + 阶段/固定七天本周 + 周导航/日期状态卡片/拖动菜单
 │   │   ├── task_detail_screen.dart   # 子任务主详情 + 顶部编辑 + 闹钟/重复选择器
 │   │   └── memo_screen.dart          # 当前分类标题 + 弹窗创建 + 批量选择 + 搜索
 │   ├── widgets/
@@ -78,8 +80,8 @@ MY_Project/to-do_list/
 │   ├── sync_config_test.dart         # 本地公共配置回退
 │   ├── database_location_test.dart   # Windows旧库复制到稳定路径
 │   ├── mobile_layout_test.dart       # 手机输入栏/工具栏/筛选面板/右侧探头；runAsync隔离原生SQLite
-│   ├── arrangement_collapse_sort_test.dart # 固定七天、历史完成、独立排序、收起和窄屏边界
-│   ├── stage_week_visual_test.dart   # 390×844 阶段/本周真实组件视觉回归
+│   ├── arrangement_collapse_sort_test.dart # 固定七天、历史完成、独立排序、收起和 320dp 放大字体边界
+│   ├── stage_week_visual_test.dart   # 390×844 B 方案阶段/本周真实组件视觉回归
 │   ├── goldens/                      # 阶段/本周手机端视觉基准 PNG
 │   ├── workload_companion_test.dart  # 五状态/探头/本地对话/跨屏吞任务
 │   ├── companion_rig_test.dart       # 三方向/15部件/独立方向资源

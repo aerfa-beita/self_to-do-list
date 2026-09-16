@@ -47,41 +47,44 @@ void main() {
     addTearDown(tester.view.resetDevicePixelRatio);
     addTearDown(tester.view.resetPhysicalSize);
 
-    final monday = _task(4, '整理本周复盘', dueDate: DateTime(2026, 9, 7));
-    final saturday = _task(5, '完成阶段页面验收', dueDate: DateTime(2026, 9, 12));
-    await tester.pumpWidget(
-      MaterialApp(
-        debugShowCheckedModeBanner: false,
-        theme: ThemeData(
-          colorSchemeSeed: Colors.indigo,
-          useMaterial3: true,
-          fontFamily: 'Microsoft YaHei',
-        ),
-        home: Scaffold(
-          body: SafeArea(
-            child: TaskArrangementView(
-              nowTasks: [_task(1, '处理今天最重要的任务')],
-              nextTasks: [_task(2, '准备下一步材料', mode: Task.planNextMode)],
-              laterTasks: [_task(3, '记录稍后再做的想法', mode: Task.planLaterMode)],
-              doneNowTasks: const [],
-              doneNextTasks: const [],
-              doneLaterTasks: const [],
-              unplannedTasks: const [],
-              allUndoneTasks: [monday, saturday],
-              today: DateTime(2026, 9, 12),
-              onToggleTask: (_) {},
-              onOpenTask: (_) {},
-              onMoveTask: (_, _) async {},
-              onEditTask: (_) {},
-              onDeleteTask: (_) {},
-              onAddTask: (_) async {},
-              onAddWeeklyTask: (_) async {},
-              onReorder: (_, _, _) async {},
-            ),
+    final monday = _task(4, '整理本周复盘', dueDate: DateTime(2026, 9, 14));
+    final wednesday = _task(5, '完成安排页验收', dueDate: DateTime(2026, 9, 16));
+    final thursday = _task(6, '准备明天的材料', dueDate: DateTime(2026, 9, 17));
+    Widget subject(ArrangementViewMode mode) => MaterialApp(
+      debugShowCheckedModeBanner: false,
+      theme: ThemeData(
+        colorSchemeSeed: Colors.indigo,
+        useMaterial3: true,
+        fontFamily: 'Microsoft YaHei',
+      ),
+      home: Scaffold(
+        body: SafeArea(
+          child: TaskArrangementView(
+            nowTasks: [_task(1, '处理今天最重要的任务')],
+            nextTasks: [_task(2, '准备下一步材料', mode: Task.planNextMode)],
+            laterTasks: [_task(3, '记录稍后再做的想法', mode: Task.planLaterMode)],
+            doneNowTasks: const [],
+            doneNextTasks: const [],
+            doneLaterTasks: const [],
+            unplannedTasks: const [],
+            allUndoneTasks: [monday, wednesday, thursday],
+            allTasks: [monday, wednesday, thursday],
+            today: DateTime(2026, 9, 16),
+            initialMode: mode,
+            onToggleTask: (_) {},
+            onOpenTask: (_) {},
+            onMoveTask: (_, _) async {},
+            onEditTask: (_) {},
+            onDeleteTask: (_) {},
+            onAddTask: (_) async {},
+            onAddWeeklyTask: (_) async {},
+            onReorder: (_, _, _) async {},
+            onOpenStatusFilter: () {},
           ),
         ),
       ),
     );
+    await tester.pumpWidget(subject(ArrangementViewMode.stage));
     await tester.pumpAndSettle();
 
     await expectLater(
@@ -89,8 +92,19 @@ void main() {
       matchesGoldenFile('goldens/stage_mobile.png'),
     );
 
-    await tester.tap(find.text('本周'));
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump();
+    await tester.pumpWidget(subject(ArrangementViewMode.week));
     await tester.pumpAndSettle();
+    final summaryRect = tester.getRect(
+      find.byKey(const Key('arrangement-compact-summary')),
+    );
+    final todayLabelRect = tester.getRect(find.text('今日待办'));
+    expect(summaryRect.top, greaterThanOrEqualTo(50));
+    expect(
+      todayLabelRect.center.dy,
+      inInclusiveRange(summaryRect.top, summaryRect.bottom),
+    );
     await expectLater(
       find.byType(MaterialApp),
       matchesGoldenFile('goldens/week_mobile.png'),

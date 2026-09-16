@@ -19,6 +19,16 @@ Flutter 桌面端（Windows + Android）备忘录 + Todo List 应用，Material 
 | [STRUCTURE.md](STRUCTURE.md) | 目录结构、文件关系、架构图 |
 | [CODE_STATS.md](CODE_STATS.md) | 代码统计 |
 
+## [2026-09-16 安排页 B 方案紧凑工作区](../docs/2026-09-16-安排页B方案紧凑工作区.md)
+
+| 检查 | 结果 |
+|------|------|
+| 页面层级 | “安排”标题 + 本周/阶段/收件箱 + 紧凑工作区 |
+| 摘要 | 今日待办、当前查看周待办、当前查看周完成 |
+| 本周 | 单行周导航、紧凑状态筛选、星期+日期+状态卡片 |
+| 窄屏 | 320dp + 1.3 倍字体无越界 |
+| 验证 | Flutter 70/70；Windows Release 成功；Android 被既有回环故障拦截 |
+
 ## [2026-09-16 精灵窝退场与安排优先导航](../docs/2026-09-16-精灵窝退场与安排优先导航.md)
 
 | 检查 | 结果 |
@@ -68,7 +78,7 @@ Flutter 桌面端（Windows + Android）备忘录 + Todo List 应用，Material 
 | 功能 | 状态 |
 |------|------|
 | 当时手机底部“备忘录 / 安排” | ⏩ 9/16 已调整为“安排 / 备忘录” |
-| 收件箱五视图、阶段/本周三视图严格互斥；已安排仅管理 | ✅ |
+| 收件箱四视图、阶段/本周三视图严格互斥；已安排仅管理 | ✅ 9/16 已移除精灵窝 |
 | 完成/删除全局生效，按 inbox/stage/week 来源归档与恢复 | ✅ |
 | 收件箱长按排序、明确选择按钮、两级移动菜单与统一线性图标 | ✅ |
 | 过去日期按未完成状态自动收起/展开；空日期无 `0` | ✅ |
@@ -377,6 +387,7 @@ UI → Service → Repository → DatabaseProvider → SQLite（单向依赖，�
 
 | 平台 | 路径 | 大小 |
 |------|------|------|
+| Windows Release（2026-09-16，DB v23 安排页 B 方案） | build/windows/x64/runner/Release | app.so 9,569,160 bytes；待人工启动验收 |
 | Windows Release（2026-09-15 19:39，DB v22 安排优先版） | build/windows/x64/runner/Release | app.so 9,569,160 bytes |
 | Android APK 1.2.2+5（2026-09-15 12:41，DB v21 历史包） | build/app/outputs/flutter-apk/app-release.apk | 67,710,945 bytes；不是本批 v22 产物 |
 | Windows Release（2026-09-12，收件箱/安排/小部件代码版） | build/windows/x64/runner/Release | 35,961,052 bytes / 67 文件 |
@@ -386,10 +397,10 @@ UI → Service → Repository → DatabaseProvider → SQLite（单向依赖，�
 
 ## 下次待办
 
-1. 确认安排页方案 A/B，更新 `DESIGN.md` 后实现视觉改版
+1. 采用 GitHub Releases 承载 APK 与版本清单，建立正式签名、发布脚本和应用内更新链路
 2. 在普通 PowerShell/Android Studio 构建 v23 Android Release，并核对 APK 更新时间
-3. 侧装 v23 包，验收旧精灵窝任务释放、安排优先导航、来源归档恢复、两级移动菜单、页面恢复与两个桌面小部件
+3. 侧装 v23 包，验收安排页 B 方案、旧精灵窝任务释放、来源归档恢复、页面恢复与两个桌面小部件
 4. Windows/Android 同一邮箱验收阶段、日期、完成来源和删除来源同步
-5. 实现 Supabase 主源 + GitHub Releases 备用源的应用内更新
+5. 用正式签名 APK 覆盖安装下一版，验收检查、下载、摘要校验、权限引导和系统安装确认
 6. 决定是否从旧数据库备份恢复已删除内容
 7. 子任务 hover 边框 bug

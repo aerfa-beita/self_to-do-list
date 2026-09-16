@@ -2245,7 +2245,8 @@ class TodoScreenState extends State<TodoScreen> with WidgetsBindingObserver {
               Expanded(
                 child: Column(
                   children: [
-                    _buildViewSwitcher(context),
+                    if (!(isCompact && showArrangementBoard))
+                      _buildViewSwitcher(context),
                     if (!isCompact) _buildFilterHeader(context),
                     // 搜索（滚回顶部时出现）
                     if (!isCompact)
@@ -2371,6 +2372,8 @@ class TodoScreenState extends State<TodoScreen> with WidgetsBindingObserver {
                               onMoveToWeekDay: _changeTaskDay,
                               onSyncStage: _chooseStageForWeekTask,
                               onSyncToday: _syncTaskToToday,
+                              statusLabel: _currentFilterLabel(),
+                              onOpenStatusFilter: _showMobileFilterSheet,
                               initialMode: _arrangementViewMode,
                               showSwitcher: false,
                               onModeChanged: (mode) {

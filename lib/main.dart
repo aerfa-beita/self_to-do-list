@@ -658,41 +658,50 @@ class _MainScreenState extends State<MainScreen>
   Widget build(BuildContext context) {
     final isMemo = _tabController.index == 1;
     final isCompact = MediaQuery.sizeOf(context).width < 900;
+    final primaryNavigation = SegmentedButton<TodoPrimaryPage>(
+      key: const Key('todo-primary-navigation'),
+      showSelectedIcon: false,
+      segments: const [
+        ButtonSegment(value: TodoPrimaryPage.week, label: Text('本周')),
+        ButtonSegment(value: TodoPrimaryPage.stage, label: Text('阶段')),
+        ButtonSegment(value: TodoPrimaryPage.inbox, label: Text('收件箱')),
+      ],
+      selected: {_todoPrimaryPage},
+      style: ButtonStyle(
+        visualDensity: VisualDensity.compact,
+        padding: WidgetStateProperty.all(
+          EdgeInsets.symmetric(horizontal: isCompact ? 10 : 12),
+        ),
+      ),
+      onSelectionChanged: (selection) {
+        final page = selection.first;
+        setState(() {
+          _todoPrimaryPage = page;
+          _todoArrangementMode = page != TodoPrimaryPage.inbox;
+        });
+        todoScreenKey.currentState?.setPrimaryPage(page);
+      },
+    );
     return Scaffold(
       appBar: AppBar(
-        titleSpacing: isCompact ? 8 : 16,
+        titleSpacing: 16,
         title: isMemo
             ? Text(_memoSectionTitle)
-            : SegmentedButton<TodoPrimaryPage>(
-                key: const Key('todo-primary-navigation'),
-                showSelectedIcon: false,
-                segments: const [
-                  ButtonSegment(value: TodoPrimaryPage.week, label: Text('本周')),
-                  ButtonSegment(
-                    value: TodoPrimaryPage.stage,
-                    label: Text('阶段'),
-                  ),
-                  ButtonSegment(
-                    value: TodoPrimaryPage.inbox,
-                    label: Text('收件箱'),
-                  ),
-                ],
-                selected: {_todoPrimaryPage},
-                style: ButtonStyle(
-                  visualDensity: VisualDensity.compact,
-                  padding: WidgetStateProperty.all(
-                    EdgeInsets.symmetric(horizontal: isCompact ? 6 : 12),
+            : isCompact
+            ? const Text('安排', style: TextStyle(fontWeight: FontWeight.w700))
+            : primaryNavigation,
+        bottom: !isMemo && isCompact
+            ? PreferredSize(
+                preferredSize: const Size.fromHeight(58),
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+                  child: SizedBox(
+                    width: double.infinity,
+                    child: primaryNavigation,
                   ),
                 ),
-                onSelectionChanged: (selection) {
-                  final page = selection.first;
-                  setState(() {
-                    _todoPrimaryPage = page;
-                    _todoArrangementMode = page != TodoPrimaryPage.inbox;
-                  });
-                  todoScreenKey.currentState?.setPrimaryPage(page);
-                },
-              ),
+              )
+            : null,
         actions: [
           if (isMemo)
             IconButton(

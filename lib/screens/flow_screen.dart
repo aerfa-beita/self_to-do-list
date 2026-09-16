@@ -51,6 +51,8 @@ class TaskArrangementView extends StatefulWidget {
     this.collapsedModes = const <String>{},
     this.onCollapsedModesChanged,
     this.showSwitcher = true,
+    this.statusLabel = '未完成',
+    this.onOpenStatusFilter,
   });
 
   final List<Task> nowTasks;
@@ -82,6 +84,8 @@ class TaskArrangementView extends StatefulWidget {
   final Set<String> collapsedModes;
   final ArrangementCollapseChanged? onCollapsedModesChanged;
   final bool showSwitcher;
+  final String statusLabel;
+  final VoidCallback? onOpenStatusFilter;
 
   @override
   State<TaskArrangementView> createState() => _TaskArrangementViewState();
@@ -270,6 +274,10 @@ class _TaskArrangementViewState extends State<TaskArrangementView> {
                   key: const Key('arrangement-mobile'),
                   padding: const EdgeInsets.fromLTRB(12, 4, 12, 24),
                   children: [
+                    _compactSummary(_currentWeekStart),
+                    const SizedBox(height: 10),
+                    _statusFilter(),
+                    const SizedBox(height: 10),
                     _ArrangementHint(
                       compact: true,
                       allCollapsed: _allStagesCollapsed,
@@ -375,6 +383,9 @@ class _TaskArrangementViewState extends State<TaskArrangementView> {
       .subtract(Duration(days: _today.weekday - 1))
       .add(Duration(days: _weekOffset * 7));
 
+  DateTime get _currentWeekStart =>
+      _today.subtract(Duration(days: _today.weekday - 1));
+
   bool _sameDay(DateTime? value, DateTime day) =>
       value != null &&
       value.year == day.year &&
@@ -400,9 +411,49 @@ class _TaskArrangementViewState extends State<TaskArrangementView> {
 
   String _weekdayLabel(DateTime day) {
     const labels = ['周一', '周二', '周三', '周四', '周五', '周六', '周日'];
-    final label = labels[day.weekday - 1];
-    return _sameDay(day, _today) ? '今天 · $label' : label;
+    return labels[day.weekday - 1];
   }
+
+  Widget _compactSummary(DateTime weekStart) {
+    final weekEnd = weekStart.add(const Duration(days: 7));
+    bool inWeek(Task task) {
+      final date = task.dueDate;
+      if (date == null) return false;
+      final day = DateTime(date.year, date.month, date.day);
+      return !day.isBefore(weekStart) && day.isBefore(weekEnd);
+    }
+
+    final todayUndone = widget.allUndoneTasks
+        .where((task) => _sameDay(task.dueDate, _today))
+        .length;
+    final weekUndone = widget.allUndoneTasks.where(inWeek).length;
+    final weekCompleted = (widget.allTasks ?? const <Task>[])
+        .where((task) => task.isCompleted && inWeek(task))
+        .length;
+    final weekLabel = weekStart == _currentWeekStart ? '本周' : '所选周';
+    return _ArrangementSummary(
+      todayCount: todayUndone,
+      weekLabel: weekLabel,
+      weekCount: weekUndone,
+      completedCount: weekCompleted,
+    );
+  }
+
+  Widget _statusFilter() => Align(
+    alignment: Alignment.centerLeft,
+    child: OutlinedButton.icon(
+      key: const Key('arrangement-status-filter'),
+      onPressed: widget.onOpenStatusFilter,
+      icon: const Icon(Icons.tune_rounded, size: 18),
+      label: Text(widget.statusLabel),
+      iconAlignment: IconAlignment.start,
+      style: OutlinedButton.styleFrom(
+        minimumSize: const Size(0, 48),
+        padding: const EdgeInsets.symmetric(horizontal: 14),
+        side: BorderSide(color: Theme.of(context).colorScheme.outlineVariant),
+      ),
+    ),
+  );
 
   String _weekRangeLabel(DateTime start) {
     final end = start.add(const Duration(days: 6));
@@ -424,6 +475,10 @@ class _TaskArrangementViewState extends State<TaskArrangementView> {
         key: _weekListKey,
         padding: const EdgeInsets.fromLTRB(12, 4, 12, 24),
         children: [
+          if (compact) ...[
+            _compactSummary(_weekStart),
+            const SizedBox(height: 10),
+          ],
           _WeekNavigator(
             label: _weekRangeLabel(_weekStart),
             isCurrentWeek: _weekOffset == 0,
@@ -448,10 +503,12 @@ class _TaskArrangementViewState extends State<TaskArrangementView> {
               padding: EdgeInsets.fromLTRB(8, 8, 8, 0),
               child: Text('拖动未完成任务到目标日期'),
             ),
+          if (compact) ...[const SizedBox(height: 8), _statusFilter()],
           const SizedBox(height: 10),
           for (final day in days) ...[
             _WeekdayPanel(
               day: day,
+              today: _today,
               title: _weekdayLabel(day),
               tasks: _tasksForDay(day),
               collapsed: _tasksForDay(day).isEmpty
@@ -540,35 +597,140 @@ class _WeekNavigator extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
-    return Material(
-      color: colors.surfaceContainerLow,
-      borderRadius: BorderRadius.circular(14),
-      child: Row(
-        children: [
-          IconButton(
-            key: const Key('week-previous'),
-            tooltip: '上一周',
-            onPressed: onPrevious,
-            icon: const Icon(Icons.chevron_left),
-          ),
-          Expanded(
-            child: TextButton(
-              key: const Key('week-current'),
-              onPressed: isCurrentWeek ? null : onCurrent,
-              child: Text(isCurrentWeek ? '本周 · $label' : label),
+    Widget navigationButton({
+      required Key key,
+      required String tooltip,
+      required IconData icon,
+      required VoidCallback onPressed,
+    }) => Material(
+      color: colors.surfaceContainerLowest,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: colors.outlineVariant),
+      ),
+      child: IconButton(
+        key: key,
+        tooltip: tooltip,
+        onPressed: onPressed,
+        icon: Icon(icon),
+        iconSize: 20,
+        constraints: const BoxConstraints.tightFor(width: 48, height: 48),
+      ),
+    );
+    return Row(
+      children: [
+        navigationButton(
+          key: const Key('week-previous'),
+          tooltip: '上一周',
+          icon: Icons.chevron_left,
+          onPressed: onPrevious,
+        ),
+        const SizedBox(width: 6),
+        Expanded(
+          child: TextButton(
+            key: const Key('week-current'),
+            onPressed: isCurrentWeek ? null : onCurrent,
+            style: TextButton.styleFrom(
+              minimumSize: const Size(0, 48),
+              padding: const EdgeInsets.symmetric(horizontal: 4),
+            ),
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: colors.onSurface,
+                fontSize: 14,
+                fontWeight: FontWeight.w700,
+              ),
             ),
           ),
-          TextButton(
-            key: const Key('week-adjust-dates'),
-            onPressed: onToggleAdjust,
-            child: Text(adjustingDates ? '完成' : '调整日期'),
+        ),
+        FilledButton.tonal(
+          key: const Key('week-adjust-dates'),
+          onPressed: onToggleAdjust,
+          style: FilledButton.styleFrom(
+            minimumSize: const Size(84, 48),
+            padding: const EdgeInsets.symmetric(horizontal: 12),
           ),
-          IconButton(
-            key: const Key('week-next'),
-            tooltip: '下一周',
-            onPressed: onNext,
-            icon: const Icon(Icons.chevron_right),
+          child: Text(adjustingDates ? '完成' : '调整日期'),
+        ),
+        const SizedBox(width: 6),
+        navigationButton(
+          key: const Key('week-next'),
+          tooltip: '下一周',
+          icon: Icons.chevron_right,
+          onPressed: onNext,
+        ),
+      ],
+    );
+  }
+}
+
+class _ArrangementSummary extends StatelessWidget {
+  const _ArrangementSummary({
+    required this.todayCount,
+    required this.weekLabel,
+    required this.weekCount,
+    required this.completedCount,
+  });
+
+  final int todayCount;
+  final String weekLabel;
+  final int weekCount;
+  final int completedCount;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    Widget metric(String label, int count, {bool emphasized = false}) =>
+        Expanded(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 13),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  '$count',
+                  style: TextStyle(
+                    fontSize: 22,
+                    height: 1,
+                    fontWeight: FontWeight.w800,
+                    color: emphasized ? colors.primary : colors.onSurface,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: colors.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
           ),
+        );
+    return Material(
+      key: const Key('arrangement-compact-summary'),
+      color: colors.primaryContainer.withValues(alpha: .32),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: colors.outlineVariant),
+      ),
+      child: Row(
+        children: [
+          metric('今日待办', todayCount, emphasized: true),
+          SizedBox(
+            height: 38,
+            child: VerticalDivider(width: 1, color: colors.outlineVariant),
+          ),
+          metric('$weekLabel待办', weekCount),
+          SizedBox(
+            height: 38,
+            child: VerticalDivider(width: 1, color: colors.outlineVariant),
+          ),
+          metric('$weekLabel完成', completedCount),
         ],
       ),
     );
@@ -630,6 +792,7 @@ class _ArrangementHint extends StatelessWidget {
 class _WeekdayPanel extends StatelessWidget {
   const _WeekdayPanel({
     required this.day,
+    required this.today,
     required this.title,
     required this.tasks,
     required this.collapsed,
@@ -649,6 +812,7 @@ class _WeekdayPanel extends StatelessWidget {
   });
 
   final DateTime day;
+  final DateTime today;
   final String title;
   final List<Task> tasks;
   final bool collapsed;
@@ -669,9 +833,27 @@ class _WeekdayPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
+    final isToday =
+        day.year == today.year &&
+        day.month == today.month &&
+        day.day == today.day;
+    final isPast = day.isBefore(today);
+    final undoneCount = tasks.where((task) => !task.isCompleted).length;
+    final completedCount = tasks.where((task) => task.isCompleted).length;
+    final status = isToday
+        ? undoneCount > 0
+              ? '今天 · $undoneCount'
+              : '今天'
+        : undoneCount > 0
+        ? '$undoneCount 待办'
+        : isPast && completedCount > 0
+        ? '已完成'
+        : '';
     final panel = Material(
       key: Key('week-day-${day.weekday}'),
-      color: colors.surfaceContainerLowest,
+      color: isToday
+          ? colors.primaryContainer.withValues(alpha: .18)
+          : colors.surfaceContainerLowest,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
         side: BorderSide(color: colors.outlineVariant),
@@ -685,20 +867,44 @@ class _WeekdayPanel extends StatelessWidget {
             child: ConstrainedBox(
               constraints: const BoxConstraints(minHeight: 48),
               child: Padding(
-                padding: const EdgeInsets.only(left: 4, right: 4),
+                padding: const EdgeInsets.only(left: 6, right: 4),
                 child: Row(
                   children: [
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        '$title ${day.month}月${day.day}日',
+                        style: const TextStyle(fontWeight: FontWeight.w700),
+                      ),
+                    ),
+                    if (status.isNotEmpty)
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 9,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: isToday
+                              ? colors.primary.withValues(alpha: .10)
+                              : colors.surfaceContainerHigh,
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                        child: Text(
+                          status,
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: isToday
+                                ? colors.primary
+                                : colors.onSurfaceVariant,
+                          ),
+                        ),
+                      ),
                     SizedBox(
                       width: 40,
                       height: 48,
                       child: Icon(
                         collapsed ? Icons.expand_more : Icons.expand_less,
-                      ),
-                    ),
-                    Expanded(
-                      child: Text(
-                        tasks.isEmpty ? title : '$title · ${tasks.length}',
-                        style: const TextStyle(fontWeight: FontWeight.w700),
                       ),
                     ),
                   ],
@@ -760,7 +966,7 @@ class _WeekdayPanel extends StatelessWidget {
                 key: Key('week-add-${day.weekday}'),
                 onPressed: onAddTask == null ? null : () => onAddTask!(day),
                 icon: const Icon(Icons.add, size: 18),
-                label: Text(title.startsWith('今天') ? '添加到今天' : '添加到$title'),
+                label: Text(isToday ? '添加到今天' : '添加到$title'),
               ),
             ),
           ],
@@ -1021,6 +1227,7 @@ class _ArrangementTaskRow extends StatelessWidget {
                 value: task.isCompleted,
                 onChanged: (_) => onToggleTask(task),
                 visualDensity: VisualDensity.compact,
+                shape: const CircleBorder(),
               ),
               Expanded(
                 child: Text(

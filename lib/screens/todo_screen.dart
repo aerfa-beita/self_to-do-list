@@ -936,6 +936,24 @@ class TodoScreenState extends State<TodoScreen> with WidgetsBindingObserver {
     return result;
   }
 
+  int _compareTaskEventNewestFirst(
+    Task a,
+    Task b,
+    DateTime? Function(Task task) eventTime,
+  ) {
+    final aTime = eventTime(a);
+    final bTime = eventTime(b);
+    if (aTime == null && bTime != null) return 1;
+    if (aTime != null && bTime == null) return -1;
+    if (aTime != null && bTime != null) {
+      final eventOrder = bTime.compareTo(aTime);
+      if (eventOrder != 0) return eventOrder;
+    }
+    final updateOrder = b.updatedAt.compareTo(a.updatedAt);
+    if (updateOrder != 0) return updateOrder;
+    return (b.id ?? -1).compareTo(a.id ?? -1);
+  }
+
   bool get _manualSortAllowed =>
       primaryPage == TodoPrimaryPage.inbox && _smartView == 'inbox';
 
@@ -2253,18 +2271,30 @@ class TodoScreenState extends State<TodoScreen> with WidgetsBindingObserver {
         ? _filterTasks(_activeUndone)
         : const <Task>[];
     final filteredDone = _smartView == 'completed'
-        ? _applyCategoryAndSearch(
+        ? (_applyCategoryAndSearch(
             _activeDone
                 .where((task) => task.completedScope == _currentActionScope)
                 .toList(),
-          )
+          )..sort(
+            (a, b) => _compareTaskEventNewestFirst(
+              a,
+              b,
+              (task) => task.completedAt,
+            ),
+          ))
         : const <Task>[];
     final filteredDeleted = _smartView == 'deleted'
-        ? _applyCategoryAndSearch(
+        ? (_applyCategoryAndSearch(
             _deleted
                 .where((task) => task.deletedScope == _currentActionScope)
                 .toList(),
-          )
+          )..sort(
+            (a, b) => _compareTaskEventNewestFirst(
+              a,
+              b,
+              (task) => task.deletedAt,
+            ),
+          ))
         : const <Task>[];
     final showArrangementBoard =
         _displayMode == TodoDisplayMode.arrangement && _smartView == 'active';

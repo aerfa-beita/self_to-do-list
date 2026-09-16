@@ -372,6 +372,63 @@ void main() {
     },
   );
 
+  testWidgets('completed and deleted smart views sort newest first', (
+    tester,
+  ) async {
+    final base = DateTime(2026, 9, 16, 12);
+    final db = (await tester.runAsync(() async {
+      final database = await makeDb();
+      final repository = TaskRepository(database);
+      await repository.insert(
+        Task(
+          title: '较新完成',
+          completedAt: base.add(const Duration(hours: 2)),
+          completedScope: Task.actionScopeInbox,
+        ),
+      );
+      await repository.insert(
+        Task(
+          title: '较早完成',
+          completedAt: base,
+          completedScope: Task.actionScopeInbox,
+        ),
+      );
+      await repository.insert(
+        Task(
+          title: '较早删除',
+          deletedAt: base.add(const Duration(hours: 1)),
+          deletedScope: Task.actionScopeInbox,
+        ),
+      );
+      await repository.insert(
+        Task(
+          title: '较新删除',
+          deletedAt: base.add(const Duration(hours: 3)),
+          deletedScope: Task.actionScopeInbox,
+        ),
+      );
+      return database;
+    }))!;
+    addTearDown(() => tester.runAsync(db.close));
+
+    await pumpScreen(tester, db);
+    screenKey!.currentState!.setPrimaryPage(TodoPrimaryPage.inbox);
+    await tester.pump();
+    await tester.tap(find.text('已完成'));
+    await settle(tester, find.text('较新完成'));
+    expect(
+      tester.getTopLeft(find.text('较新完成')).dy,
+      lessThan(tester.getTopLeft(find.text('较早完成')).dy),
+    );
+
+    await tester.tap(find.text('最近删除'));
+    await settle(tester, find.text('较新删除'));
+    expect(
+      tester.getTopLeft(find.text('较新删除')).dy,
+      lessThan(tester.getTopLeft(find.text('较早删除')).dy),
+    );
+  });
+
   testWidgets('context menu moves a normal task to later stage and detail '
       'shows read-only stage chip', (tester) async {
     final db = (await tester.runAsync(() async {

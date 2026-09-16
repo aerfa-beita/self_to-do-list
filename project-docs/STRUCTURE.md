@@ -50,7 +50,7 @@ MY_Project/to-do_list/
 │   │   ├── sync_coordinator.dart      # 生命周期/防抖/周期
 │   │   └── sync_status.dart
 │   ├── screens/
-│   │   ├── todo_screen.dart          # 本周/阶段/收件箱 + 历史完成来源接线 + 页面记忆与批量操作
+│   │   ├── todo_screen.dart          # 来源状态视图 + 历史事件倒序 + 页面记忆与批量操作
 │   │   ├── flow_screen.dart          # 阶段/固定七天本周 + 长按排序 + 跨日/同步菜单
 │   │   ├── task_detail_screen.dart   # 子任务主详情 + 顶部编辑 + 闹钟/重复选择器
 │   │   └── memo_screen.dart          # 当前分类标题 + 弹窗创建 + 批量选择 + 搜索
@@ -70,7 +70,7 @@ MY_Project/to-do_list/
 ├── test/
 │   ├── core_features_test.dart       # DB v22/升级前备份/来源迁移/JSON合并/关联/解析
 │   ├── flow_screen_test.dart          # 安排模式三列/共用已完成捷径/行菜单/空态
-│   ├── todo_arrangement_test.dart     # 单层安排导航/严格状态视图/本周历史来源/菜单与恢复
+│   ├── todo_arrangement_test.dart     # 来源状态隔离/历史事件排序/本周历史/菜单与恢复
 │   ├── sync_engine_test.dart         # 多批次上传/关系修复/旧云任务来源推断
 │   ├── sync_gateway_encoding_test.dart # 中文 payload 推送 utf8 编码回归（本地 HTTP）🆕
 │   ├── sync_config_test.dart         # 本地公共配置回退

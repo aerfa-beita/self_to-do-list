@@ -19,6 +19,14 @@ Flutter 桌面端（Windows + Android）备忘录 + Todo List 应用，Material 
 | [STRUCTURE.md](STRUCTURE.md) | 目录结构、文件关系、架构图 |
 | [CODE_STATS.md](CODE_STATS.md) | 代码统计 |
 
+## [2026-09-16 完成与删除时间排序修复](../docs/2026-09-16-完成与删除时间排序修复.md)
+
+| 视图 | 顺序 |
+|------|------|
+| 已完成 | `completed_at DESC, updated_at DESC, id DESC` |
+| 最近删除 | `deleted_at DESC, updated_at DESC, id DESC` |
+| 来源 | inbox/stage/week 先过滤再排序 |
+
 ## [2026-09-16 本周历史完成任务显示修复](../docs/2026-09-16-本周历史完成任务显示修复.md)
 
 | 检查 | 结果 |

@@ -795,14 +795,31 @@ class _SubTaskRowWidgetState extends State<_SubTaskRowWidget> {
       ),
       items: [
         if (widget.onMoveSubTaskUp != null && i > 0 && !st.isDeleted)
-          const PopupMenuItem(value: 'up', child: Text('⬆ 上移')),
+          PopupMenuItem(
+            value: 'up',
+            child: TaskItem._menuLabel(Icons.arrow_upward, '上移'),
+          ),
         if (widget.onMoveSubTaskDown != null && i < total - 1 && !st.isDeleted)
-          const PopupMenuItem(value: 'down', child: Text('⬇ 下移')),
+          PopupMenuItem(
+            value: 'down',
+            child: TaskItem._menuLabel(Icons.arrow_downward, '下移'),
+          ),
         if (st.isDeleted)
-          const PopupMenuItem(value: 'restore', child: Text('↩ 恢复')),
+          PopupMenuItem(
+            value: 'restore',
+            child: TaskItem._menuLabel(Icons.restore_outlined, '恢复'),
+          ),
+        if (st.isDeleted ||
+            (widget.onMoveSubTaskUp != null && i > 0) ||
+            (widget.onMoveSubTaskDown != null && i < total - 1))
+          const PopupMenuDivider(),
         PopupMenuItem(
           value: 'delete',
-          child: Text(st.isDeleted ? '🗑 永久删除' : '🗑 删除'),
+          child: TaskItem._menuLabel(
+            st.isDeleted ? Icons.delete_forever_outlined : Icons.delete_outline,
+            st.isDeleted ? '永久删除' : '删除',
+            color: Colors.red,
+          ),
         ),
       ],
     ).then((v) {
@@ -827,6 +844,7 @@ class _SubTaskRowWidgetState extends State<_SubTaskRowWidget> {
   @override
   Widget build(BuildContext context) {
     final st = widget.st;
+    final colors = Theme.of(context).colorScheme;
     return Padding(
       padding: EdgeInsets.only(left: st.level * 20.0 + 8),
       child: MouseRegion(
@@ -836,15 +854,19 @@ class _SubTaskRowWidgetState extends State<_SubTaskRowWidget> {
           onSecondaryTapUp: (d) => _showContextMenu(d.globalPosition),
           child: Container(
             decoration: BoxDecoration(
-              color: _hovered ? Colors.grey.shade300 : Colors.transparent,
-              borderRadius: BorderRadius.circular(6),
+              color: _hovered
+                  ? colors.surfaceContainerHighest.withAlpha(120)
+                  : Colors.transparent,
+              borderRadius: BorderRadius.circular(12),
             ),
-            padding: const EdgeInsets.fromLTRB(8, 12, 4, 12),
+            padding: const EdgeInsets.fromLTRB(8, 8, 4, 8),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Checkbox(
                   value: st.isDone,
+                  shape: const CircleBorder(),
+                  side: BorderSide(color: colors.primary, width: 1.8),
                   onChanged: (_) => widget.onToggleSubTask?.call(st),
                 ),
                 Expanded(
@@ -862,8 +884,8 @@ class _SubTaskRowWidgetState extends State<_SubTaskRowWidget> {
                                 ? TextDecoration.lineThrough
                                 : null,
                             color: (st.isDone || st.isDeleted)
-                                ? Colors.grey
-                                : null,
+                                ? colors.onSurfaceVariant
+                                : colors.onSurface,
                           ),
                         ),
                         if (st.dueDate != null) ...[
@@ -873,8 +895,8 @@ class _SubTaskRowWidgetState extends State<_SubTaskRowWidget> {
                             style: TextStyle(
                               fontSize: 11,
                               color: st.isOverdue
-                                  ? Colors.red
-                                  : Colors.grey.shade500,
+                                  ? colors.error
+                                  : colors.onSurfaceVariant,
                               fontWeight: st.isOverdue
                                   ? FontWeight.w600
                                   : FontWeight.normal,
@@ -886,8 +908,13 @@ class _SubTaskRowWidgetState extends State<_SubTaskRowWidget> {
                   ),
                 ),
                 PopupMenuButton<String>(
-                  iconSize: 20,
-                  icon: Icon(Icons.more_vert, color: Colors.grey.shade400),
+                  tooltip: '更多子任务操作',
+                  iconSize: 22,
+                  constraints: const BoxConstraints(
+                    minWidth: 48,
+                    minHeight: 48,
+                  ),
+                  icon: Icon(Icons.more_vert, color: colors.onSurfaceVariant),
                   onSelected: (v) {
                     switch (v) {
                       case 'up':
@@ -908,19 +935,39 @@ class _SubTaskRowWidgetState extends State<_SubTaskRowWidget> {
                     if (widget.onMoveSubTaskUp != null &&
                         widget.index > 0 &&
                         !st.isDeleted)
-                      const PopupMenuItem(value: 'up', child: Text('⬆ 上移')),
+                      PopupMenuItem(
+                        value: 'up',
+                        child: TaskItem._menuLabel(Icons.arrow_upward, '上移'),
+                      ),
                     if (widget.onMoveSubTaskDown != null &&
                         widget.index < widget.total - 1 &&
                         !st.isDeleted)
-                      const PopupMenuItem(value: 'down', child: Text('⬇ 下移')),
-                    if (st.isDeleted)
-                      const PopupMenuItem(
-                        value: 'restore',
-                        child: Text('↩ 恢复'),
+                      PopupMenuItem(
+                        value: 'down',
+                        child: TaskItem._menuLabel(Icons.arrow_downward, '下移'),
                       ),
+                    if (st.isDeleted)
+                      PopupMenuItem(
+                        value: 'restore',
+                        child: TaskItem._menuLabel(
+                          Icons.restore_outlined,
+                          '恢复',
+                        ),
+                      ),
+                    if (st.isDeleted ||
+                        (widget.onMoveSubTaskUp != null && widget.index > 0) ||
+                        (widget.onMoveSubTaskDown != null &&
+                            widget.index < widget.total - 1))
+                      const PopupMenuDivider(),
                     PopupMenuItem(
                       value: 'delete',
-                      child: Text(st.isDeleted ? '🗑 永久删除' : '🗑 删除'),
+                      child: TaskItem._menuLabel(
+                        st.isDeleted
+                            ? Icons.delete_forever_outlined
+                            : Icons.delete_outline,
+                        st.isDeleted ? '永久删除' : '删除',
+                        color: Colors.red,
+                      ),
                     ),
                   ],
                 ),

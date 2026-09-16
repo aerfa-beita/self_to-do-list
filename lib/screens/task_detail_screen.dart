@@ -506,24 +506,6 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     _refreshAffected(affected[0], affected[1]);
   }
 
-  Future<void> _moveSubTaskUp(SubTask st) async {
-    await widget.taskService.moveSubTaskUp(st.id!);
-    if (st.parentId != null) {
-      await _loadChildren(st.parentId!);
-    }
-    _roots = await widget.taskService.getRootSubTasks(widget.task.id!);
-    if (mounted) setState(() {});
-  }
-
-  Future<void> _moveSubTaskDown(SubTask st) async {
-    await widget.taskService.moveSubTaskDown(st.id!);
-    if (st.parentId != null) {
-      await _loadChildren(st.parentId!);
-    }
-    _roots = await widget.taskService.getRootSubTasks(widget.task.id!);
-    if (mounted) setState(() {});
-  }
-
   Future<void> _refreshAffected(int? oldParent, int? newParent) async {
     if (oldParent != null) await _loadChildren(oldParent);
     if (newParent != null) await _loadChildren(newParent);
@@ -594,7 +576,80 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     return count(_roots);
   }
 
-  void _showContextMenu(Offset position, SubTask st, int index, int total) {
+  Widget _menuLabel(IconData icon, String label, {Color? color}) {
+    return Row(
+      children: [
+        Icon(icon, size: 20, color: color),
+        const SizedBox(width: 12),
+        Text(label, style: TextStyle(color: color)),
+      ],
+    );
+  }
+
+  List<PopupMenuEntry<String>> _subTaskMenuItems(SubTask st, int index) {
+    if (st.isDeleted) {
+      return [
+        PopupMenuItem(
+          value: 'restore',
+          child: _menuLabel(Icons.restore_outlined, '恢复'),
+        ),
+        const PopupMenuDivider(),
+        PopupMenuItem(
+          value: 'delete',
+          child: _menuLabel(
+            Icons.delete_forever_outlined,
+            '永久删除',
+            color: Colors.red,
+          ),
+        ),
+      ];
+    }
+    return [
+      PopupMenuItem(
+        value: 'edit',
+        child: _menuLabel(Icons.edit_outlined, '编辑'),
+      ),
+      if (st.canHaveChildren)
+        PopupMenuItem(
+          value: 'add_child',
+          child: _menuLabel(Icons.add_circle_outline, '添加下级'),
+        ),
+      if (st.parentId != null)
+        PopupMenuItem(
+          value: 'promote',
+          child: _menuLabel(Icons.subdirectory_arrow_left, '提升一级'),
+        ),
+      if (st.level < 4 && index > 0)
+        PopupMenuItem(
+          value: 'demote',
+          child: _menuLabel(Icons.subdirectory_arrow_right, '设为上一项的下级'),
+        ),
+      const PopupMenuDivider(),
+      PopupMenuItem(
+        value: 'delete',
+        child: _menuLabel(Icons.delete_outline, '删除', color: Colors.red),
+      ),
+    ];
+  }
+
+  void _handleSubTaskAction(String value, SubTask st) {
+    switch (value) {
+      case 'edit':
+        _editSubTask(st);
+      case 'promote':
+        _promoteSubTask(st);
+      case 'demote':
+        _demoteSubTask(st);
+      case 'add_child':
+        _addChild(st);
+      case 'delete':
+        st.isDeleted ? _permDeleteSubTask(st) : _deleteSubTask(st);
+      case 'restore':
+        _restoreSubTask(st);
+    }
+  }
+
+  void _showContextMenu(Offset position, SubTask st, int index) {
     showMenu<String>(
       context: context,
       position: RelativeRect.fromLTRB(
@@ -603,53 +658,10 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
         position.dx,
         position.dy,
       ),
-      items: [
-        if (index > 0 && !st.isDeleted)
-          const PopupMenuItem(value: 'up', child: Text('⬆ 上移')),
-        if (index < total - 1 && !st.isDeleted)
-          const PopupMenuItem(value: 'down', child: Text('⬇ 下移')),
-        if (st.parentId != null && !st.isDeleted)
-          const PopupMenuItem(value: 'promote', child: Text('← 提升')),
-        if (st.level < 4 && index > 0 && !st.isDeleted)
-          const PopupMenuItem(value: 'demote', child: Text('→ 降入')),
-        if (st.canHaveChildren && !st.isDeleted)
-          const PopupMenuItem(value: 'add_child', child: Text('＋ 添加子任务')),
-        if (st.isDeleted)
-          const PopupMenuItem(value: 'restore', child: Text('↩ 恢复')),
-        PopupMenuItem(
-          value: 'delete',
-          child: Text(st.isDeleted ? '🗑 永久删除' : '🗑 删除'),
-        ),
-      ],
+      items: _subTaskMenuItems(st, index),
     ).then((v) {
       if (v == null) return;
-      switch (v) {
-        case 'up':
-          _moveSubTaskUp(st);
-          break;
-        case 'down':
-          _moveSubTaskDown(st);
-          break;
-        case 'promote':
-          _promoteSubTask(st);
-          break;
-        case 'demote':
-          _demoteSubTask(st);
-          break;
-        case 'add_child':
-          _addChild(st);
-          break;
-        case 'delete':
-          if (st.isDeleted) {
-            _permDeleteSubTask(st);
-          } else {
-            _deleteSubTask(st);
-          }
-          break;
-        case 'restore':
-          _restoreSubTask(st);
-          break;
-      }
+      _handleSubTaskAction(v, st);
     });
   }
 
@@ -674,131 +686,106 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
   Widget _buildSubTaskTile(
     SubTask st,
     int i,
-    int total,
     bool hasChildren,
     bool isExpanded,
     double indent, {
     Key? key,
   }) {
+    final colors = Theme.of(context).colorScheme;
     return Padding(
       key: key,
       padding: EdgeInsets.only(left: indent),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          GestureDetector(
-            onSecondaryTapUp: (details) =>
-                _showContextMenu(details.globalPosition, st, i, total),
-            child: ListTile(
-              leading: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  if (hasChildren || st.canHaveChildren)
-                    InkWell(
-                      onTap: () => _toggleExpand(st.id!),
-                      child: Icon(
-                        isExpanded ? Icons.expand_more : Icons.chevron_right,
-                        size: 20,
-                        color: Colors.grey.shade500,
-                      ),
-                    )
-                  else
-                    const SizedBox(width: 20),
-                  Checkbox(
-                    value: st.isDone,
-                    onChanged: (_) => _toggleSubTask(st),
-                  ),
-                ],
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 4),
+            child: Material(
+              color: st.isDone
+                  ? colors.surfaceContainerLow
+                  : colors.surfaceContainerLowest,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(14),
+                side: BorderSide(color: colors.outlineVariant),
               ),
-              title: InkWell(
-                onTap: () => _editSubTask(st),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      st.title,
-                      style: TextStyle(
-                        decoration: (st.isDone || st.isDeleted)
-                            ? TextDecoration.lineThrough
-                            : null,
-                        color: (st.isDone || st.isDeleted) ? Colors.grey : null,
-                        fontSize: 16,
+              clipBehavior: Clip.antiAlias,
+              child: GestureDetector(
+                onSecondaryTapUp: (details) =>
+                    _showContextMenu(details.globalPosition, st, i),
+                child: ListTile(
+                  onTap: st.isDeleted ? null : () => _editSubTask(st),
+                  leading: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (hasChildren || st.canHaveChildren)
+                        IconButton(
+                          tooltip: isExpanded ? '收起下级' : '展开下级',
+                          onPressed: () => _toggleExpand(st.id!),
+                          icon: Icon(
+                            isExpanded
+                                ? Icons.expand_more
+                                : Icons.chevron_right,
+                            size: 20,
+                          ),
+                        )
+                      else
+                        const SizedBox(width: 48),
+                      Checkbox(
+                        value: st.isDone,
+                        shape: const CircleBorder(),
+                        side: BorderSide(color: colors.primary, width: 1.8),
+                        onChanged: st.isDeleted
+                            ? null
+                            : (_) => _toggleSubTask(st),
                       ),
+                    ],
+                  ),
+                  title: Text(
+                    st.title,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                      decoration: (st.isDone || st.isDeleted)
+                          ? TextDecoration.lineThrough
+                          : null,
+                      color: (st.isDone || st.isDeleted)
+                          ? colors.onSurfaceVariant
+                          : colors.onSurface,
                     ),
-                    if (st.dueDate != null)
-                      Text(
-                        '${st.isOverdue ? "已过期 " : ""}${fmtDateTime(st.dueDate, st.reminderTime)}',
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: st.isOverdue
-                              ? Colors.red
-                              : Colors.grey.shade500,
-                          fontWeight: st.isOverdue
-                              ? FontWeight.w600
-                              : FontWeight.normal,
+                  ),
+                  subtitle: st.dueDate == null
+                      ? null
+                      : Text(
+                          '${st.isOverdue ? "已过期 · " : ""}${fmtDateTime(st.dueDate, st.reminderTime)}',
+                          style: Theme.of(context).textTheme.bodySmall
+                              ?.copyWith(
+                                color: st.isOverdue
+                                    ? colors.error
+                                    : colors.onSurfaceVariant,
+                                fontWeight: st.isOverdue
+                                    ? FontWeight.w600
+                                    : FontWeight.normal,
+                              ),
                         ),
-                      ),
-                  ],
+                  trailing: PopupMenuButton<String>(
+                    key: Key('subtask-more-${st.id}'),
+                    tooltip: '更多子任务操作',
+                    iconSize: 22,
+                    constraints: const BoxConstraints(
+                      minWidth: 48,
+                      minHeight: 48,
+                    ),
+                    padding: EdgeInsets.zero,
+                    icon: Icon(Icons.more_vert, color: colors.onSurfaceVariant),
+                    onSelected: (value) => _handleSubTaskAction(value, st),
+                    itemBuilder: (_) => _subTaskMenuItems(st, i),
+                  ),
+                  contentPadding: const EdgeInsets.fromLTRB(4, 4, 4, 4),
+                  visualDensity: VisualDensity.compact,
                 ),
               ),
-              trailing: PopupMenuButton<String>(
-                iconSize: 22,
-                constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
-                padding: EdgeInsets.zero,
-                icon: Icon(Icons.more_vert, color: Colors.grey.shade500),
-                onSelected: (v) {
-                  switch (v) {
-                    case 'up':
-                      _moveSubTaskUp(st);
-                      break;
-                    case 'down':
-                      _moveSubTaskDown(st);
-                      break;
-                    case 'promote':
-                      _promoteSubTask(st);
-                      break;
-                    case 'demote':
-                      _demoteSubTask(st);
-                      break;
-                    case 'add_child':
-                      _addChild(st);
-                      break;
-                    case 'delete':
-                      st.isDeleted
-                          ? _permDeleteSubTask(st)
-                          : _deleteSubTask(st);
-                      break;
-                    case 'restore':
-                      _restoreSubTask(st);
-                      break;
-                  }
-                },
-                itemBuilder: (_) => [
-                  if (!st.isDeleted && i > 0)
-                    const PopupMenuItem(value: 'up', child: Text('⬆ 上移')),
-                  if (!st.isDeleted && i < total - 1)
-                    const PopupMenuItem(value: 'down', child: Text('⬇ 下移')),
-                  if (!st.isDeleted && st.parentId != null)
-                    const PopupMenuItem(value: 'promote', child: Text('← 提升')),
-                  if (!st.isDeleted && st.level < 4 && i > 0)
-                    const PopupMenuItem(value: 'demote', child: Text('→ 降入')),
-                  if (!st.isDeleted && st.canHaveChildren)
-                    const PopupMenuItem(
-                      value: 'add_child',
-                      child: Text('＋ 添加子任务'),
-                    ),
-                  if (st.isDeleted)
-                    const PopupMenuItem(value: 'restore', child: Text('↩ 恢复')),
-                  PopupMenuItem(
-                    value: 'delete',
-                    child: Text(st.isDeleted ? '🗑 永久删除' : '🗑 删除'),
-                  ),
-                ],
-              ),
-              contentPadding: const EdgeInsets.fromLTRB(8, 12, 4, 12),
-              visualDensity: VisualDensity.standard,
             ),
-          ), // GestureDetector
+          ),
           if (isExpanded && hasChildren) ..._buildTree(_children[st.id!]!),
         ],
       ),
@@ -812,17 +799,8 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
         final st = items[i];
         final hasChildren = _children.containsKey(st.id);
         final isExpanded = _expanded.contains(st.id);
-        final indent = st.level * 24.0;
-        list.add(
-          _buildSubTaskTile(
-            st,
-            i,
-            items.length,
-            hasChildren,
-            isExpanded,
-            indent,
-          ),
-        );
+        final indent = st.level * 20.0;
+        list.add(_buildSubTaskTile(st, i, hasChildren, isExpanded, indent));
       }
       return list;
     }
@@ -838,11 +816,10 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
           final st = e.value;
           final hasChildren = _children.containsKey(st.id);
           final isExpanded = _expanded.contains(st.id);
-          final indent = st.level * 24.0;
+          final indent = st.level * 20.0;
           return _buildSubTaskTile(
             st,
             i,
-            items.length,
             hasChildren,
             isExpanded,
             indent,
@@ -858,6 +835,8 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     final total = _countAll();
     final done = _countDone();
     final treeItems = _buildTree(_roots);
+    final colors = Theme.of(context).colorScheme;
+    final progress = total == 0 ? 0.0 : done / total;
 
     return Shortcuts(
       shortcuts: <ShortcutActivator, Intent>{
@@ -891,7 +870,6 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                     ),
                   ),
                 ),
-              Center(child: Text('$done/$total 完成')),
               if (widget.onEditTask != null)
                 TextButton(
                   onPressed: () async {
@@ -913,47 +891,112 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                   margin: const EdgeInsets.all(12),
                   padding: const EdgeInsets.all(14),
                   decoration: BoxDecoration(
-                    color: Colors.indigo.shade50,
-                    borderRadius: BorderRadius.circular(10),
+                    color: colors.surfaceContainerLow,
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: colors.outlineVariant),
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        '📝 备忘录',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.indigo.shade400,
-                        ),
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.note_alt_outlined,
+                            size: 18,
+                            color: colors.primary,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            '任务备注',
+                            style: Theme.of(context).textTheme.labelLarge
+                                ?.copyWith(color: colors.primary),
+                          ),
+                        ],
                       ),
                       const SizedBox(height: 6),
                       Text(
                         _currentTask.note,
-                        style: const TextStyle(fontSize: 14),
+                        style: Theme.of(context).textTheme.bodyMedium,
                       ),
                     ],
                   ),
                 ),
               Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 8,
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 6),
+                child: Container(
+                  key: const Key('subtask-progress-card'),
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: colors.secondaryContainer.withAlpha(110),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: colors.outlineVariant),
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              '任务进度',
+                              style: Theme.of(context).textTheme.labelMedium
+                                  ?.copyWith(color: colors.onSurfaceVariant),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              total == 0
+                                  ? '还没有子任务'
+                                  : done == total
+                                  ? '全部完成'
+                                  : '还剩 ${total - done} 项',
+                              style: Theme.of(context).textTheme.titleMedium
+                                  ?.copyWith(fontWeight: FontWeight.w700),
+                            ),
+                          ],
+                        ),
+                      ),
+                      SizedBox(
+                        width: MediaQuery.sizeOf(context).width < 360
+                            ? 132
+                            : 176,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            Text(
+                              '$done / $total 完成',
+                              style: Theme.of(context).textTheme.labelMedium
+                                  ?.copyWith(color: colors.onSurfaceVariant),
+                            ),
+                            const SizedBox(height: 8),
+                            LinearProgressIndicator(
+                              value: progress,
+                              minHeight: 7,
+                              borderRadius: BorderRadius.circular(4),
+                              backgroundColor: colors.surfaceContainerHighest,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 12, 20, 4),
                 child: Row(
                   children: [
-                    const Text(
+                    Text(
                       '子任务',
-                      style: TextStyle(
-                        fontWeight: FontWeight.w600,
-                        fontSize: 15,
+                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w700,
                       ),
                     ),
                     const Spacer(),
                     Text(
-                      '$total 项',
-                      style: TextStyle(
-                        color: Colors.grey.shade500,
-                        fontSize: 13,
+                      total > 1 ? '长按排序' : '$total 项',
+                      style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                        color: colors.onSurfaceVariant,
                       ),
                     ),
                   ],
@@ -962,52 +1005,79 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
               Expanded(
                 child: _roots.isEmpty
                     ? Center(
-                        child: Text(
-                          '还没有子任务，在下方添加',
-                          style: TextStyle(color: Colors.grey.shade400),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.checklist_rounded,
+                              size: 36,
+                              color: colors.outline,
+                            ),
+                            const SizedBox(height: 10),
+                            Text(
+                              '还没有子任务',
+                              style: Theme.of(context).textTheme.bodyMedium
+                                  ?.copyWith(color: colors.onSurfaceVariant),
+                            ),
+                          ],
                         ),
                       )
                     : ListView(
-                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                        padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
                         children: treeItems,
                       ),
               ),
-              Container(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 20),
-                decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.surface,
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black12,
-                      blurRadius: 4,
-                      offset: const Offset(0, -1),
+              SafeArea(
+                top: false,
+                child: Container(
+                  padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
+                  decoration: BoxDecoration(
+                    color: colors.surface,
+                    border: Border(
+                      top: BorderSide(color: colors.outlineVariant),
                     ),
-                  ],
-                ),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: TextField(
-                        controller: _inputController,
-                        focusNode: _inputFocus,
-                        textInputAction: TextInputAction.done,
-                        decoration: const InputDecoration(
-                          hintText: '添加子任务...',
-                          border: OutlineInputBorder(),
-                          contentPadding: EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 10,
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: _inputController,
+                          focusNode: _inputFocus,
+                          textInputAction: TextInputAction.done,
+                          decoration: InputDecoration(
+                            hintText: '添加子任务',
+                            filled: true,
+                            fillColor: colors.surfaceContainerHighest,
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(14),
+                              borderSide: BorderSide.none,
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(14),
+                              borderSide: BorderSide(
+                                color: colors.outlineVariant,
+                              ),
+                            ),
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 14,
+                              vertical: 13,
+                            ),
                           ),
+                          onSubmitted: (_) => _addRoot(),
                         ),
-                        onSubmitted: (_) => _addRoot(),
                       ),
-                    ),
-                    const SizedBox(width: 8),
-                    IconButton.filled(
-                      onPressed: _addRoot,
-                      icon: const Icon(Icons.add),
-                    ),
-                  ],
+                      const SizedBox(width: 8),
+                      IconButton.filled(
+                        tooltip: '添加子任务',
+                        onPressed: _addRoot,
+                        constraints: const BoxConstraints.tightFor(
+                          width: 50,
+                          height: 50,
+                        ),
+                        icon: const Icon(Icons.add),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ],

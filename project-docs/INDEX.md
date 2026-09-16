@@ -19,6 +19,15 @@ Flutter 桌面端（Windows + Android）备忘录 + Todo List 应用，Material 
 | [STRUCTURE.md](STRUCTURE.md) | 目录结构、文件关系、架构图 |
 | [CODE_STATS.md](CODE_STATS.md) | 代码统计 |
 
+## [2026-09-16 子任务详情页统一改版](../docs/2026-09-16-子任务详情页统一改版.md)
+
+| 检查 | 结果 |
+|------|------|
+| 信息层级 | 进度卡 + 子任务卡片 + 安全区添加栏 |
+| 交互 | 同级长按排序；三点菜单负责编辑、层级和删除 |
+| 响应式 | 390dp 视觉基准；320dp + 1.3 倍字体无异常 |
+| 验证 | Flutter 77/77；Windows Release 成功；Android 待小花先生构建和真机验收 |
+
 ## [2026-09-16 Android 应用内更新与正式签名](../docs/2026-09-16-Android应用内更新与正式签名.md)
 
 | 检查 | 结果 |

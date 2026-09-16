@@ -108,14 +108,20 @@ class WidgetTaskStore(private val context: Context) {
         tasks
     } ?: emptyList()
 
-    private fun hasWeekOrder(database: SQLiteDatabase): Boolean =
+    private fun hasTaskColumn(database: SQLiteDatabase, column: String): Boolean =
         database.rawQuery("PRAGMA table_info(tasks)", null).use { cursor ->
             val nameColumn = cursor.getColumnIndex("name")
             while (cursor.moveToNext()) {
-                if (cursor.getString(nameColumn) == "week_sort_order") return@use true
+                if (cursor.getString(nameColumn) == column) return@use true
             }
             false
         }
+
+    private fun hasWeekOrder(database: SQLiteDatabase): Boolean =
+        hasTaskColumn(database, "week_sort_order")
+
+    private fun scopeForKind(kind: String): String =
+        if (kind == WidgetContract.KIND_WEEK) "week" else "stage"
 
     private fun rootSubTasks(database: SQLiteDatabase, taskId: Long): List<WidgetSubTask> {
         val result = mutableListOf<WidgetSubTask>()
@@ -160,7 +166,9 @@ class WidgetTaskStore(private val context: Context) {
             put("category", "默认")
             put("created_at", now)
             putNull("completed_at")
+            if (hasTaskColumn(database, "completed_scope")) putNull("completed_scope")
             putNull("deleted_at")
+            if (hasTaskColumn(database, "deleted_scope")) putNull("deleted_scope")
             if (kind == WidgetContract.KIND_WEEK) {
                 put("due_date", "${LocalDate.now()}T00:00:00.000")
                 put("task_mode", "normal")
@@ -183,21 +191,30 @@ class WidgetTaskStore(private val context: Context) {
         true
     } ?: false
 
-    fun toggleTask(taskId: Long): Boolean = withDatabase { database ->
+    fun toggleTask(taskId: Long, kind: String): Boolean = withDatabase { database ->
         val now = nowText()
+        val scopeAssignment = if (hasTaskColumn(database, "completed_scope")) {
+            ", completed_scope = CASE WHEN completed_at IS NULL THEN ? ELSE NULL END"
+        } else ""
+        val args = if (scopeAssignment.isEmpty()) {
+            arrayOf<Any?>(now, now, taskId)
+        } else {
+            arrayOf<Any?>(now, scopeForKind(kind), now, taskId)
+        }
         database.execSQL(
             """
             UPDATE tasks
             SET completed_at = CASE WHEN completed_at IS NULL THEN ? ELSE NULL END,
+                ${if (scopeAssignment.isEmpty()) "" else "completed_scope = CASE WHEN completed_at IS NULL THEN ? ELSE NULL END,"}
                 updated_at = ?, revision = revision + 1
             WHERE id = ? AND deleted_at IS NULL
             """.trimIndent(),
-            arrayOf<Any?>(now, now, taskId),
+            args,
         )
         true
     } ?: false
 
-    fun toggleSubTask(subTaskId: Long): Boolean = withDatabase { database ->
+    fun toggleSubTask(subTaskId: Long, kind: String): Boolean = withDatabase { database ->
         database.beginTransaction()
         try {
             val taskId = database.rawQuery(
@@ -226,10 +243,17 @@ class WidgetTaskStore(private val context: Context) {
                 cursor.getInt(0) to cursor.getInt(1)
             }
             val completedAt = if (progress.first > 0 && progress.first == progress.second) now else null
-            database.execSQL(
-                "UPDATE tasks SET completed_at = ?, updated_at = ?, revision = revision + 1 WHERE id = ?",
-                arrayOf<Any?>(completedAt, now, taskId),
-            )
+            if (hasTaskColumn(database, "completed_scope")) {
+                database.execSQL(
+                    "UPDATE tasks SET completed_at = ?, completed_scope = ?, updated_at = ?, revision = revision + 1 WHERE id = ?",
+                    arrayOf<Any?>(completedAt, if (completedAt == null) null else scopeForKind(kind), now, taskId),
+                )
+            } else {
+                database.execSQL(
+                    "UPDATE tasks SET completed_at = ?, updated_at = ?, revision = revision + 1 WHERE id = ?",
+                    arrayOf<Any?>(completedAt, now, taskId),
+                )
+            }
             database.setTransactionSuccessful()
             true
         } finally {
@@ -249,12 +273,19 @@ class WidgetTaskStore(private val context: Context) {
         arrayOf(mode),
     )
 
-    fun softDeleteTask(taskId: Long): Boolean = withDatabase { database ->
+    fun softDeleteTask(taskId: Long, kind: String): Boolean = withDatabase { database ->
         val now = nowText()
-        database.execSQL(
-            "UPDATE tasks SET deleted_at = ?, updated_at = ?, revision = revision + 1 WHERE id = ?",
-            arrayOf<Any?>(now, now, taskId),
-        )
+        if (hasTaskColumn(database, "deleted_scope")) {
+            database.execSQL(
+                "UPDATE tasks SET deleted_at = ?, deleted_scope = ?, updated_at = ?, revision = revision + 1 WHERE id = ?",
+                arrayOf<Any?>(now, scopeForKind(kind), now, taskId),
+            )
+        } else {
+            database.execSQL(
+                "UPDATE tasks SET deleted_at = ?, updated_at = ?, revision = revision + 1 WHERE id = ?",
+                arrayOf<Any?>(now, now, taskId),
+            )
+        }
         true
     } ?: false
 

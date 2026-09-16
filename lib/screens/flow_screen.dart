@@ -50,6 +50,7 @@ class TaskArrangementView extends StatefulWidget {
     this.onClearCompleted,
     this.collapsedModes = const <String>{},
     this.onCollapsedModesChanged,
+    this.showSwitcher = true,
   });
 
   final List<Task> nowTasks;
@@ -80,6 +81,7 @@ class TaskArrangementView extends StatefulWidget {
   final VoidCallback? onClearCompleted;
   final Set<String> collapsedModes;
   final ArrangementCollapseChanged? onCollapsedModesChanged;
+  final bool showSwitcher;
 
   @override
   State<TaskArrangementView> createState() => _TaskArrangementViewState();
@@ -103,6 +105,7 @@ class _TaskArrangementViewState extends State<TaskArrangementView> {
     super.initState();
     _collapsedModes = _validCollapsedModes(widget.collapsedModes);
     _viewMode = widget.initialMode;
+    _applyWeekCollapseDefaults();
     _scheduleMidnightRefresh();
   }
 
@@ -115,7 +118,7 @@ class _TaskArrangementViewState extends State<TaskArrangementView> {
       nextDay.difference(now) + const Duration(milliseconds: 200),
       () {
         if (!mounted) return;
-        setState(() {});
+        setState(_applyWeekCollapseDefaults);
         _scheduleMidnightRefresh();
       },
     );
@@ -166,6 +169,12 @@ class _TaskArrangementViewState extends State<TaskArrangementView> {
     if (widget.initialMode != oldWidget.initialMode) {
       _viewMode = widget.initialMode;
     }
+    if (_viewMode == ArrangementViewMode.week &&
+        (widget.initialMode != oldWidget.initialMode ||
+            widget.allTasks != oldWidget.allTasks ||
+            widget.allUndoneTasks != oldWidget.allUndoneTasks)) {
+      _applyWeekCollapseDefaults();
+    }
   }
 
   Set<String> _validCollapsedModes(Iterable<String> modes) =>
@@ -190,6 +199,22 @@ class _TaskArrangementViewState extends State<TaskArrangementView> {
         : Set<String>.from(Task.arrangementModes);
     setState(() => _collapsedModes = next);
     widget.onCollapsedModesChanged?.call(Set.unmodifiable(next));
+  }
+
+  void _applyWeekCollapseDefaults() {
+    for (var index = 0; index < 7; index++) {
+      final day = _weekStart.add(Duration(days: index));
+      if (!day.isBefore(_today)) {
+        _collapsedWeekdays.remove(day.weekday);
+        continue;
+      }
+      final hasUndone = _tasksForDay(day).any((task) => !task.isCompleted);
+      if (hasUndone) {
+        _collapsedWeekdays.remove(day.weekday);
+      } else {
+        _collapsedWeekdays.add(day.weekday);
+      }
+    }
   }
 
   @override
@@ -231,7 +256,7 @@ class _TaskArrangementViewState extends State<TaskArrangementView> {
             key: const Key('arrangement-week-view'),
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              switcher,
+              if (widget.showSwitcher) switcher,
               Expanded(child: _weekView(compact)),
             ],
           );
@@ -239,7 +264,7 @@ class _TaskArrangementViewState extends State<TaskArrangementView> {
         if (compact) {
           return Column(
             children: [
-              switcher,
+              if (widget.showSwitcher) switcher,
               Expanded(
                 child: ListView(
                   key: const Key('arrangement-mobile'),
@@ -287,7 +312,7 @@ class _TaskArrangementViewState extends State<TaskArrangementView> {
           key: const Key('arrangement-desktop'),
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            switcher,
+            if (widget.showSwitcher) switcher,
             Expanded(
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(12, 4, 12, 12),
@@ -402,9 +427,18 @@ class _TaskArrangementViewState extends State<TaskArrangementView> {
           _WeekNavigator(
             label: _weekRangeLabel(_weekStart),
             isCurrentWeek: _weekOffset == 0,
-            onPrevious: () => setState(() => _weekOffset--),
-            onCurrent: () => setState(() => _weekOffset = 0),
-            onNext: () => setState(() => _weekOffset++),
+            onPrevious: () => setState(() {
+              _weekOffset--;
+              _applyWeekCollapseDefaults();
+            }),
+            onCurrent: () => setState(() {
+              _weekOffset = 0;
+              _applyWeekCollapseDefaults();
+            }),
+            onNext: () => setState(() {
+              _weekOffset++;
+              _applyWeekCollapseDefaults();
+            }),
             adjustingDates: _adjustingDates,
             onToggleAdjust: () =>
                 setState(() => _adjustingDates = !_adjustingDates),
@@ -960,8 +994,6 @@ class _ArrangementTaskRow extends StatelessWidget {
   void _handleMenu(String value) {
     if (value == _editValue) {
       onEditTask(task);
-    } else if (value == _deleteValue) {
-      onDeleteTask(task);
     } else if (value == _syncStageValue) {
       onSyncStage?.call(task);
     } else if (value == _syncTodayValue) {
@@ -1011,47 +1043,105 @@ class _ArrangementTaskRow extends StatelessWidget {
                 constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
                 onSelected: _handleMenu,
                 itemBuilder: (_) => [
-                  const PopupMenuItem(value: _editValue, child: Text('编辑')),
+                  const PopupMenuItem(
+                    value: _editValue,
+                    child: Row(
+                      children: [
+                        Icon(Icons.edit_outlined, size: 20),
+                        SizedBox(width: 12),
+                        Text('编辑'),
+                      ],
+                    ),
+                  ),
                   if (weekRow)
                     const PopupMenuItem(
                       value: _syncStageValue,
-                      child: Text('同步阶段'),
+                      child: Row(
+                        children: [
+                          Icon(Icons.view_kanban_outlined, size: 20),
+                          SizedBox(width: 12),
+                          Text('同步阶段'),
+                        ],
+                      ),
                     ),
                   if (!weekRow) ...[
                     if (currentMode != Task.planNowMode)
                       const PopupMenuItem(
                         value: Task.planNowMode,
-                        child: Text('移到现在'),
+                        child: Row(
+                          children: [
+                            Icon(Icons.bolt_outlined, size: 20),
+                            SizedBox(width: 12),
+                            Text('移到现在'),
+                          ],
+                        ),
                       ),
                     if (currentMode != Task.planNextMode)
                       const PopupMenuItem(
                         value: Task.planNextMode,
-                        child: Text('移到接下来'),
+                        child: Row(
+                          children: [
+                            Icon(Icons.arrow_forward_rounded, size: 20),
+                            SizedBox(width: 12),
+                            Text('移到接下来'),
+                          ],
+                        ),
                       ),
                     if (currentMode != Task.planLaterMode)
                       const PopupMenuItem(
                         value: Task.planLaterMode,
-                        child: Text('移到稍后'),
+                        child: Row(
+                          children: [
+                            Icon(Icons.schedule_outlined, size: 20),
+                            SizedBox(width: 12),
+                            Text('移到稍后'),
+                          ],
+                        ),
                       ),
                     if (currentMode != Task.normalMode)
                       const PopupMenuItem(
                         value: Task.normalMode,
-                        child: Text('移回列表'),
+                        child: Row(
+                          children: [
+                            Icon(Icons.inbox_outlined, size: 20),
+                            SizedBox(width: 12),
+                            Text('移回收件箱'),
+                          ],
+                        ),
                       ),
                     if (!task.isCompleted)
                       const PopupMenuItem(
                         value: _syncTodayValue,
-                        child: Text('同步今日'),
+                        child: Row(
+                          children: [
+                            Icon(Icons.today_outlined, size: 20),
+                            SizedBox(width: 12),
+                            Text('同步今日'),
+                          ],
+                        ),
                       ),
                   ],
                   const PopupMenuDivider(),
                   PopupMenuItem(
+                    key: const Key('arrangement-delete-action'),
                     value: _deleteValue,
-                    child: Text(
-                      '删除',
-                      style: TextStyle(
-                        color: Theme.of(context).colorScheme.error,
-                      ),
+                    onTap: () =>
+                        Future<void>.microtask(() => onDeleteTask(task)),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.delete_outline,
+                          size: 20,
+                          color: Theme.of(context).colorScheme.error,
+                        ),
+                        const SizedBox(width: 12),
+                        Text(
+                          '删除',
+                          style: TextStyle(
+                            color: Theme.of(context).colorScheme.error,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ],

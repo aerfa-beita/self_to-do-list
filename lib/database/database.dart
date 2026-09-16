@@ -121,8 +121,12 @@ class DatabaseProvider {
       'PRAGMA user_version',
     )).first.values.first;
     await existing.close();
-    if (version != 21) return;
-    final backupPath = '$path.pre-v22';
+    final backupPath = switch (version) {
+      20 => '$path.pre-v21',
+      21 => '$path.pre-v22',
+      _ => null,
+    };
+    if (backupPath == null) return;
     if (await File(backupPath).exists()) return;
     await File(path).copy(backupPath);
     for (final suffix in const ['-wal', '-shm']) {
@@ -397,6 +401,15 @@ class DatabaseProvider {
       await db.execute('UPDATE tasks SET week_sort_order = sort_order');
     }
     if (oldVersion < 22) {
+      await _ensureColumn(
+        db,
+        'tasks',
+        'task_mode',
+        "TEXT NOT NULL DEFAULT 'normal'",
+      );
+      await _ensureColumn(db, 'tasks', 'due_date', 'TEXT');
+      await _ensureColumn(db, 'tasks', 'completed_at', 'TEXT');
+      await _ensureColumn(db, 'tasks', 'deleted_at', 'TEXT');
       await _ensureColumn(db, 'tasks', 'completed_scope', 'TEXT');
       await _ensureColumn(db, 'tasks', 'deleted_scope', 'TEXT');
       const inferredScope = '''

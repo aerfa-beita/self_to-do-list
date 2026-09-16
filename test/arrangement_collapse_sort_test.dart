@@ -217,7 +217,7 @@ void main() {
 
       expect(find.text('子任务 1/2'), findsOneWidget);
       expect(find.text('不应在卡片中出现'), findsNothing);
-      expect(find.byIcon(Icons.drag_handle), findsOneWidget);
+      expect(find.byType(ReorderableDelayedDragStartListener), findsOneWidget);
       expect(find.byIcon(Icons.more_vert), findsOneWidget);
       expect(find.byKey(const Key('task-more-1')), findsOneWidget);
       expect(find.byIcon(Icons.expand_more), findsNothing);
@@ -344,6 +344,38 @@ void main() {
     expect(find.text('今天已完成'), findsNothing);
     expect(find.text('昨天未完成'), findsOneWidget);
     expect(find.text('昨天已完成'), findsOneWidget);
+  });
+
+  testWidgets('past day with no unfinished task starts collapsed', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(390, 800);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.view.resetPhysicalSize);
+    final today = DateTime(2026, 9, 16);
+    final completedMonday = _task(
+      1,
+      '周一已完成',
+      dueDate: DateTime(2026, 9, 14),
+      completedAt: DateTime(2026, 9, 14, 20),
+    );
+    await tester.pumpWidget(
+      _arrangementSubject(
+        size: const Size(390, 800),
+        today: today,
+        allTasks: [completedMonday],
+      ),
+    );
+
+    await tester.tap(find.text('本周'));
+    await tester.pumpAndSettle();
+    expect(find.text('周一 · 1'), findsOneWidget);
+    expect(find.text('周一已完成'), findsNothing);
+
+    await tester.tap(find.text('周一 · 1'));
+    await tester.pumpAndSettle();
+    expect(find.text('周一已完成'), findsOneWidget);
   });
 
   test('settings keep only valid arrangement modes', () async {

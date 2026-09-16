@@ -41,6 +41,7 @@ class WidgetQuickTaskActivity : Activity() {
 
     private fun showMenu() {
         val taskId = intent.getLongExtra(WidgetContract.EXTRA_TASK_ID, -1L)
+        val kind = intent.getStringExtra(WidgetContract.EXTRA_KIND) ?: WidgetContract.KIND_NOW
         if (taskId < 0) {
             finish()
             return
@@ -59,7 +60,7 @@ class WidgetQuickTaskActivity : Activity() {
                     1 -> finishWithResult(store.moveTask(taskId, "plan_now"), "已移到现在")
                     2 -> finishWithResult(store.moveTask(taskId, "plan_next"), "已移到接下来")
                     3 -> finishWithResult(store.moveTask(taskId, "plan_later"), "已移到稍后")
-                    4 -> confirmDelete(taskId, taskTitle)
+                    4 -> confirmDelete(taskId, taskTitle, kind)
                 }
             }
             .setNegativeButton("取消") { _, _ -> finish() }
@@ -99,13 +100,13 @@ class WidgetQuickTaskActivity : Activity() {
         dialog.show()
     }
 
-    private fun confirmDelete(taskId: Long, title: String) {
+    private fun confirmDelete(taskId: Long, title: String, kind: String) {
         AlertDialog.Builder(this)
             .setTitle("删除任务")
             .setMessage("确定删除「$title」？任务仍可在最近删除中恢复。")
             .setNegativeButton("取消") { _, _ -> finish() }
             .setPositiveButton("删除") { _, _ ->
-                finishWithResult(store.softDeleteTask(taskId), "已移到最近删除")
+                finishWithResult(store.softDeleteTask(taskId, kind), "已移到最近删除")
             }
             .setOnCancelListener { finish() }
             .show()

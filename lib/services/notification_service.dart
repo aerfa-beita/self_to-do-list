@@ -113,7 +113,9 @@ class NotificationService {
 
   /// Android：是否已加入电池优化白名单（小米等 ROM 后台拦截提醒时需要）
   /// flutter_local_notifications 18.x 无此 API，走原生 MethodChannel（MainActivity.kt）
-  static const _batteryChannel = MethodChannel('todo_list/battery_optimization');
+  static const _batteryChannel = MethodChannel(
+    'todo_list/battery_optimization',
+  );
 
   Future<bool> isIgnoringBatteryOptimizations() async {
     if (!Platform.isAndroid) return true;

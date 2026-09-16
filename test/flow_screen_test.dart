@@ -167,7 +167,7 @@ void main() {
     expect(find.text('编辑'), findsOneWidget);
     expect(find.text('移到接下来'), findsOneWidget);
     expect(find.text('移到稍后'), findsOneWidget);
-    expect(find.text('移回列表'), findsOneWidget);
+    expect(find.text('移回收件箱'), findsOneWidget);
     expect(find.text('同步今日'), findsOneWidget);
     expect(find.text('删除'), findsOneWidget);
 

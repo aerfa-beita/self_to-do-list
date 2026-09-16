@@ -21,6 +21,7 @@ import 'flow_screen.dart';
 import 'task_detail_screen.dart';
 
 enum TodoDisplayMode { list, arrangement }
+
 enum TodoPrimaryPage { week, stage, inbox }
 
 class TodoScreen extends StatefulWidget {
@@ -118,11 +119,12 @@ class TodoScreenState extends State<TodoScreen> with WidgetsBindingObserver {
         'stage' => TodoPrimaryPage.stage,
         'inbox' => TodoPrimaryPage.inbox,
         'week' => TodoPrimaryPage.week,
-        _ => saved['display'] == 'list'
-            ? TodoPrimaryPage.inbox
-            : saved['arrangement'] == 'stage'
-            ? TodoPrimaryPage.stage
-            : TodoPrimaryPage.week,
+        _ =>
+          saved['display'] == 'list'
+              ? TodoPrimaryPage.inbox
+              : saved['arrangement'] == 'stage'
+              ? TodoPrimaryPage.stage
+              : TodoPrimaryPage.week,
       };
       final mode = primary == TodoPrimaryPage.inbox
           ? TodoDisplayMode.list
@@ -401,13 +403,8 @@ class TodoScreenState extends State<TodoScreen> with WidgetsBindingObserver {
 
   DateTime _dateInCurrentWeekFor(Task task) {
     final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
-    final monday = today.subtract(Duration(days: today.weekday - 1));
-    final weekday = task.dueDate?.weekday ??
-        task.completedAt?.weekday ??
-        task.deletedAt?.weekday ??
-        today.weekday;
-    return monday.add(Duration(days: weekday - 1));
+    final reference = task.dueDate ?? task.completedAt ?? task.deletedAt ?? now;
+    return TaskService.dateInCurrentWeek(reference, now: now);
   }
 
   Future<void> _restore(Task task) async {
@@ -416,9 +413,16 @@ class TodoScreenState extends State<TodoScreen> with WidgetsBindingObserver {
       final day = _dateInCurrentWeekFor(task);
       await widget.taskService.moveToWeekDay(task, day);
       restored = task.copyWith(dueDate: day);
+    } else if (task.deletedScope == Task.actionScopeInbox) {
+      restored = task.copyWith(
+        taskMode: Task.normalMode,
+        clearDueDate: true,
+        clearReminderTime: true,
+      );
+      await widget.taskService.updateTask(restored);
     }
     await widget.taskService.restoreTask(task.id!);
-    await _scheduleReminder(restored);
+    if (!restored.isCompleted) await _scheduleReminder(restored);
     _loadAll();
   }
 
@@ -433,13 +437,20 @@ class TodoScreenState extends State<TodoScreen> with WidgetsBindingObserver {
           clearCompletedScope: true,
         ),
       );
-      await _scheduleReminder(task.copyWith(dueDate: day));
+      await _scheduleReminder(
+        task.copyWith(
+          dueDate: day,
+          clearCompletedAt: true,
+          clearCompletedScope: true,
+        ),
+      );
     } else if (task.completedScope == Task.actionScopeStage) {
       await widget.taskService.setTaskCompleted(
         task,
         completed: false,
         source: Task.actionScopeStage,
       );
+      await _scheduleReminder(task.copyWith(clearCompletedAt: true));
     } else {
       await widget.taskService.updateTask(
         task.copyWith(
@@ -476,24 +487,6 @@ class TodoScreenState extends State<TodoScreen> with WidgetsBindingObserver {
     await _cancelReminder(task);
     await widget.taskService.permanentlyDeleteTask(task.id!);
     _loadAll();
-  }
-
-  Future<void> _moveTaskUp(Task task) async {
-    try {
-      await widget.taskService.moveTaskUp(task.id!);
-      await _loadAll();
-    } catch (error) {
-      if (mounted) _showError('顺序更新失败，已恢复原顺序：$error');
-    }
-  }
-
-  Future<void> _moveTaskDown(Task task) async {
-    try {
-      await widget.taskService.moveTaskDown(task.id!);
-      await _loadAll();
-    } catch (error) {
-      if (mounted) _showError('顺序更新失败，已恢复原顺序：$error');
-    }
   }
 
   void _toggleCardExpand(int taskId) async {
@@ -697,6 +690,7 @@ class TodoScreenState extends State<TodoScreen> with WidgetsBindingObserver {
   }
 
   Future<void> _cancelReminder(Task task) async {
+    if (task.reminderTime == null) return;
     await widget.notificationService.cancelReminder(task.id! + 10000);
   }
 
@@ -910,16 +904,11 @@ class TodoScreenState extends State<TodoScreen> with WidgetsBindingObserver {
     var result = tasks;
     if (_smartView == 'inbox') {
       result = result
-          .where(
-            (task) =>
-                task.companionStashedAt == null && !task.isScheduled,
-          )
+          .where((task) => task.companionStashedAt == null && !task.isScheduled)
           .toList();
     } else if (_smartView == 'arranged') {
       result = result
-          .where(
-            (task) => task.companionStashedAt == null && task.isScheduled,
-          )
+          .where((task) => task.companionStashedAt == null && task.isScheduled)
           .toList();
     } else if (_smartView == 'stash') {
       result = result.where((task) => task.companionStashedAt != null).toList()
@@ -1000,24 +989,18 @@ class TodoScreenState extends State<TodoScreen> with WidgetsBindingObserver {
     }
   });
 
-  void _selectFromLongPress(int id) => setState(() {
-    _selectMode = true;
-    _selectedIds.add(id);
-  });
-
   Future<void> _toggleTaskComplete(Task task, {String? source}) async {
     if (task.isCompleted) {
       await _restoreCompleted(task);
       return;
     }
+    await _cancelReminder(task);
     await widget.taskService.setTaskCompleted(
       task,
       completed: true,
       source: source ?? _currentActionScope,
     );
-    _companionKey.currentState?.showState(
-      CompanionState.celebrate,
-    );
+    _companionKey.currentState?.showState(CompanionState.celebrate);
     await _loadAll();
   }
 
@@ -1058,9 +1041,19 @@ class TodoScreenState extends State<TodoScreen> with WidgetsBindingObserver {
     await _loadAll();
   }
 
+  bool _sameDate(DateTime? first, DateTime second) =>
+      first != null &&
+      first.year == second.year &&
+      first.month == second.month &&
+      first.day == second.day;
+
   Future<T?> _showTaskChoice<T>({
     required String title,
-    required List<Widget> Function(BuildContext) options,
+    BuildContext? anchorContext,
+    required List<
+      ({T value, IconData icon, String label, String? subtitle, bool selected})
+    >
+    options,
   }) {
     if (Platform.isAndroid) {
       return showModalBottomSheet<T>(
@@ -1073,43 +1066,87 @@ class TodoScreenState extends State<TodoScreen> with WidgetsBindingObserver {
               leading: const Icon(Icons.swap_horiz_rounded, size: 20),
               title: Text(title),
             ),
-            ...options(sheetContext),
+            for (final option in options)
+              ListTile(
+                minTileHeight: 48,
+                leading: Icon(option.icon, size: 20),
+                title: Text(option.label),
+                subtitle: option.subtitle == null
+                    ? null
+                    : Text(option.subtitle!),
+                trailing: option.selected
+                    ? const Icon(Icons.check, size: 20)
+                    : null,
+                onTap: () => Navigator.pop(sheetContext, option.value),
+              ),
           ],
         ),
       );
     }
-    return showDialog<T>(
+    final overlay = Overlay.of(context).context.findRenderObject() as RenderBox;
+    final anchor = anchorContext?.findRenderObject() as RenderBox?;
+    final rect = anchor == null
+        ? Rect.fromLTWH(overlay.size.width - 280, 64, 48, 48)
+        : Rect.fromPoints(
+            anchor.localToGlobal(Offset.zero, ancestor: overlay),
+            anchor.localToGlobal(
+              anchor.size.bottomRight(Offset.zero),
+              ancestor: overlay,
+            ),
+          );
+    return showMenu<T>(
       context: context,
-      builder: (dialogContext) => SimpleDialog(
-        title: Text(title),
-        children: options(dialogContext),
-      ),
+      position: RelativeRect.fromRect(rect, Offset.zero & overlay.size),
+      items: [
+        PopupMenuItem<T>(enabled: false, child: Text(title)),
+        for (final option in options)
+          PopupMenuItem<T>(
+            value: option.value,
+            child: Row(
+              children: [
+                Icon(option.icon, size: 20),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(option.label),
+                      if (option.subtitle != null)
+                        Text(
+                          option.subtitle!,
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
+                    ],
+                  ),
+                ),
+                if (option.selected) const Icon(Icons.check, size: 20),
+              ],
+            ),
+          ),
+      ],
     );
   }
 
   Future<void> _chooseStageForTask(
     Task task, {
     required String title,
+    BuildContext? anchorContext,
   }) async {
     final mode = await _showTaskChoice<String>(
       title: title,
-      options: (choiceContext) => [
+      anchorContext: anchorContext,
+      options: [
         for (final target in Task.arrangementModes)
-          ListTile(
-            minTileHeight: 48,
-            leading: Icon(
-              switch (target) {
-                Task.planNowMode => Icons.bolt_outlined,
-                Task.planNextMode => Icons.arrow_forward_rounded,
-                _ => Icons.schedule_outlined,
-              },
-              size: 20,
-            ),
-            title: Text(Task.arrangementLabelForMode(target)),
-            trailing: Task.normalizeMode(task.taskMode) == target
-                ? const Icon(Icons.check, size: 20)
-                : null,
-            onTap: () => Navigator.pop(choiceContext, target),
+          (
+            value: target,
+            icon: switch (target) {
+              Task.planNowMode => Icons.bolt_outlined,
+              Task.planNextMode => Icons.arrow_forward_rounded,
+              _ => Icons.schedule_outlined,
+            },
+            label: Task.arrangementLabelForMode(target),
+            subtitle: null,
+            selected: Task.normalizeMode(task.taskMode) == target,
           ),
       ],
     );
@@ -1121,33 +1158,34 @@ class TodoScreenState extends State<TodoScreen> with WidgetsBindingObserver {
   Future<void> _chooseStageForWeekTask(Task task) =>
       _chooseStageForTask(task, title: '同步阶段');
 
-  Future<void> _chooseStageForInboxTask(Task task) =>
-      _chooseStageForTask(task, title: '移到阶段');
+  Future<void> _chooseStageForInboxTask(
+    Task task, [
+    BuildContext? anchorContext,
+  ]) => _chooseStageForTask(task, title: '移到阶段', anchorContext: anchorContext);
 
-  Future<void> _chooseWeekForTask(Task task) async {
+  Future<void> _chooseWeekForTask(
+    Task task, [
+    BuildContext? anchorContext,
+  ]) async {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
     final monday = today.subtract(Duration(days: today.weekday - 1));
     const labels = ['周一', '周二', '周三', '周四', '周五', '周六', '周日'];
     final day = await _showTaskChoice<DateTime>(
       title: '移到本周',
-      options: (choiceContext) => [
+      anchorContext: anchorContext,
+      options: [
         for (var index = 0; index < 7; index++)
-          Builder(
-            builder: (_) {
-              final date = monday.add(Duration(days: index));
-              final isToday = date == today;
-              return ListTile(
-                minTileHeight: 48,
-                leading: const Icon(Icons.calendar_today_outlined, size: 20),
-                title: Text(labels[index]),
-                subtitle: Text('${date.month}月${date.day}日'),
-                trailing: isToday
-                    ? const Chip(label: Text('今天'))
-                    : null,
-                onTap: () => Navigator.pop(choiceContext, date),
-              );
-            },
+          (
+            value: monday.add(Duration(days: index)),
+            icon: Icons.calendar_today_outlined,
+            label: labels[index],
+            subtitle:
+                '${monday.add(Duration(days: index)).month}月${monday.add(Duration(days: index)).day}日${monday.add(Duration(days: index)) == today ? ' · 今天' : ''}',
+            selected: _sameDate(
+              task.dueDate,
+              monday.add(Duration(days: index)),
+            ),
           ),
       ],
     );
@@ -1802,11 +1840,7 @@ class TodoScreenState extends State<TodoScreen> with WidgetsBindingObserver {
         ? [
             (key: 'inbox', label: '收件箱', icon: Icons.inbox_outlined),
             (key: 'arranged', label: '已安排', icon: Icons.event_note_outlined),
-            (
-              key: 'completed',
-              label: '已完成',
-              icon: Icons.check_circle_outline,
-            ),
+            (key: 'completed', label: '已完成', icon: Icons.check_circle_outline),
             (key: 'deleted', label: '最近删除', icon: Icons.delete_outline),
             (
               key: 'stash',
@@ -1816,11 +1850,7 @@ class TodoScreenState extends State<TodoScreen> with WidgetsBindingObserver {
           ]
         : [
             (key: 'active', label: '未完成', icon: Icons.pending_actions),
-            (
-              key: 'completed',
-              label: '已完成',
-              icon: Icons.check_circle_outline,
-            ),
+            (key: 'completed', label: '已完成', icon: Icons.check_circle_outline),
             (key: 'deleted', label: '最近删除', icon: Icons.delete_outline),
           ];
     return SingleChildScrollView(
@@ -2057,6 +2087,17 @@ class TodoScreenState extends State<TodoScreen> with WidgetsBindingObserver {
                           ),
                         ),
                       ),
+                      if (primaryPage == TodoPrimaryPage.inbox &&
+                          _smartView == 'inbox')
+                        TextButton.icon(
+                          key: const Key('todo-mobile-select-button'),
+                          onPressed: () {
+                            Navigator.pop(sheetContext);
+                            _toggleSelectMode();
+                          },
+                          icon: const Icon(Icons.select_all_rounded, size: 20),
+                          label: Text(_selectMode ? '取消选择' : '选择'),
+                        ),
                       IconButton(
                         tooltip: '关闭',
                         onPressed: () => Navigator.pop(sheetContext),
@@ -2206,16 +2247,15 @@ class TodoScreenState extends State<TodoScreen> with WidgetsBindingObserver {
   Widget build(BuildContext context) {
     final viewport = MediaQuery.sizeOf(context);
     final isCompact = viewport.width < 900;
-    final filteredUndone = _displayMode == TodoDisplayMode.list &&
+    final filteredUndone =
+        _displayMode == TodoDisplayMode.list &&
             const {'inbox', 'arranged', 'stash'}.contains(_smartView)
         ? _filterTasks(_activeUndone)
         : const <Task>[];
     final filteredDone = _smartView == 'completed'
         ? _applyCategoryAndSearch(
             _activeDone
-                .where(
-                  (task) => task.completedScope == _currentActionScope,
-                )
+                .where((task) => task.completedScope == _currentActionScope)
                 .toList(),
           )
         : const <Task>[];
@@ -2254,8 +2294,7 @@ class TodoScreenState extends State<TodoScreen> with WidgetsBindingObserver {
                 child: Column(
                   children: [
                     _buildViewSwitcher(context),
-                    if (!isCompact)
-                      _buildFilterHeader(context),
+                    if (!isCompact) _buildFilterHeader(context),
                     // 搜索（滚回顶部时出现）
                     if (!isCompact)
                       AnimatedSize(
@@ -2365,7 +2404,7 @@ class TodoScreenState extends State<TodoScreen> with WidgetsBindingObserver {
                               onDeleteTask: _confirmDeleteArranged,
                               onAddTask: (mode) => showQuickAdd(taskMode: mode),
                               allUndoneTasks: _activeUndone,
-                              allTasks: [..._activeUndone, ..._activeDone],
+                              allTasks: _activeUndone,
                               onAddWeeklyTask: (date) =>
                                   showQuickAdd(dueDate: date),
                               onReorder: _reorderArrangement,
@@ -2439,10 +2478,16 @@ class TodoScreenState extends State<TodoScreen> with WidgetsBindingObserver {
                                             onEdit: () => _showEditDialog(task),
                                             onMoveToMode: (mode) =>
                                                 _moveTaskToMode(task, mode),
-                                            onMoveToStage: () =>
-                                                _chooseStageForWeekTask(task),
-                                            onMoveToWeek: () =>
-                                                _chooseWeekForTask(task),
+                                            onMoveToStage: (anchorContext) =>
+                                                _chooseStageForInboxTask(
+                                                  task,
+                                                  anchorContext,
+                                                ),
+                                            onMoveToWeek: (anchorContext) =>
+                                                _chooseWeekForTask(
+                                                  task,
+                                                  anchorContext,
+                                                ),
                                             managementOnly:
                                                 _smartView == 'arranged',
                                             reorderable: _manualSortAllowed,
@@ -2497,8 +2542,6 @@ class TodoScreenState extends State<TodoScreen> with WidgetsBindingObserver {
                                           source: _currentActionScope,
                                         ),
                                         onEdit: () => _showEditDialog(task),
-                                        onMoveToMode: (mode) =>
-                                            _moveTaskToMode(task, mode),
                                         onComplete: () =>
                                             _restoreCompleted(task),
                                         isExpanded: _cardExpanded.contains(

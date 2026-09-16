@@ -219,4 +219,64 @@ void main() {
     expect(gateway.pushedBatches.map((batch) => batch.length), [100, 100, 5]);
     expect(await db.query('sync_outbox'), isEmpty);
   });
+
+  test(
+    'legacy cloud tasks infer missing completion and deletion scopes',
+    () async {
+      sqfliteFfiInit();
+      databaseFactory = databaseFactoryFfi;
+      final db = await DatabaseProvider().openAtPath(inMemoryDatabasePath);
+      addTearDown(db.close);
+      await db.delete('sync_outbox');
+
+      final base = DateTime.utc(2026, 9, 15, 8);
+      final stagePayload =
+          Task(
+              title: '旧云阶段已完成',
+              taskMode: Task.planNextMode,
+              completedAt: base,
+              syncId: '66666666-6666-4666-8666-666666666666',
+              createdAt: base,
+              updatedAt: base,
+            ).toMap()
+            ..remove('id')
+            ..remove('completed_scope')
+            ..remove('deleted_scope');
+      final weekPayload =
+          Task(
+              title: '旧云本周已删除',
+              dueDate: DateTime.utc(2026, 9, 16),
+              deletedAt: base,
+              syncId: '77777777-7777-4777-8777-777777777777',
+              createdAt: base,
+              updatedAt: base,
+            ).toMap()
+            ..remove('id')
+            ..remove('completed_scope')
+            ..remove('deleted_scope');
+      final gateway = _FakeSyncGateway([
+        _change(
+          type: 'task',
+          id: stagePayload['sync_id']! as String,
+          payload: stagePayload,
+          updatedAt: base,
+        ),
+        _change(
+          type: 'task',
+          id: weekPayload['sync_id']! as String,
+          payload: weekPayload,
+          updatedAt: base,
+        ),
+      ]);
+
+      await SyncEngine(db, gateway).syncNow();
+
+    final tasks = (await db.query('tasks')).map(Task.fromMap).toList();
+      final stage = tasks.singleWhere((task) => task.title == '旧云阶段已完成');
+      final week = tasks.singleWhere((task) => task.title == '旧云本周已删除');
+      expect(stage.completedScope, Task.actionScopeStage);
+      expect(week.deletedScope, Task.actionScopeWeek);
+      expect(await db.query('sync_outbox'), isEmpty);
+    },
+  );
 }

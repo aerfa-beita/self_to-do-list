@@ -19,6 +19,29 @@ Flutter 桌面端（Windows + Android）备忘录 + Todo List 应用，Material 
 | [STRUCTURE.md](STRUCTURE.md) | 目录结构、文件关系、架构图 |
 | [CODE_STATS.md](CODE_STATS.md) | 代码统计 |
 
+## [2026-09-15 Android 小部件删除作用域编译修复](../docs/2026-09-15-Android小部件删除作用域编译修复.md)
+
+| 检查 | 结果 |
+|------|------|
+| 根因 | `confirmDelete()` 使用了未传入的局部变量 `kind` |
+| 修复 | `showMenu()` 读取小部件类型并显式传给删除确认与 Store |
+| 数据影响 | 无迁移；继续正确记录 stage/week 删除来源 |
+| Android Release | ⏳ Codex 被既有回环故障拦截；待普通终端重新构建确认 |
+
+## [2026-09-15 Android“安排优先”整体改版](../docs/2026-09-15-Android安排优先整体改版.md)
+
+| 功能 | 状态 |
+|------|------|
+| 手机底部“备忘录 / 安排”，安排顶部单层“本周 / 阶段 / 收件箱” | ✅ |
+| 收件箱五视图、阶段/本周三视图严格互斥；已安排仅管理 | ✅ |
+| 完成/删除全局生效，按 inbox/stage/week 来源归档与恢复 | ✅ |
+| 收件箱长按排序、明确选择按钮、两级移动菜单与统一线性图标 | ✅ |
+| 过去日期按未完成状态自动收起/展开；空日期无 `0` | ✅ |
+| 备忘录紧凑顶部与统一图标菜单 | ✅ |
+| DB v21→v22 `.pre-v22` 备份；JSON、旧云 payload、原生小部件适配 | ✅ 自动化测试通过 |
+| 验证 | ✅ Flutter 61/61、静态分析零错误、Windows Release |
+| Android Release / 真机截图 | ⏳ Codex JBR 回环故障；无 Android 设备，本批未验收 |
+
 ## [2026-09-15 Android 本周、阶段与列表改造](../docs/2026-09-15-Android本周阶段与列表改造.md)
 
 | 功能 | 状态 |
@@ -31,7 +54,7 @@ Flutter 桌面端（Windows + Android）备忘录 + Todo List 应用，Material 
 | Android 恢复上次根页面、列表/安排及智能视图/阶段/本周 | ✅ |
 | DB v20→v21 升级前文件备份；同步、JSON 导入和原生小部件适配 | ✅ 迁移测试通过 |
 | 验证 | ✅ Flutter 55/55、两张 390×844 视觉基准、Windows Release |
-| Android Release | ✅ 普通终端构建成功，APK 结构与 v2 签名有效；⏳ 待真机验收 |
+| Android Release | ⏩ v21 历史包已构建；当前功能以顶部 v22 方案为准 |
 
 ## [2026-09-15 Gradle 回环连接诊断](../docs/2026-09-15-Gradle回环连接诊断.md)
 
@@ -311,7 +334,7 @@ UI → Service → Repository → DatabaseProvider → SQLite（单向依赖，�
 | sync_outbox / sync_state | 待同步队列、游标和登录会话 |
 | sync_conflicts | 双端并发修改快照 |
 
-当前 DB 版本：v21
+当前 DB 版本：v22
 
 ---
 
@@ -319,8 +342,8 @@ UI → Service → Repository → DatabaseProvider → SQLite（单向依赖，�
 
 | 平台 | 路径 | 大小 |
 |------|------|------|
-| Android APK 1.2.2+5（2026-09-15，DB v21 本周/阶段/列表版） | build/app/outputs/flutter-apk/app-release.apk | 67,710,945 bytes |
-| Windows Release（2026-09-15，DB v21 本周/阶段/列表版） | build/windows/x64/runner/Release | 已构建 |
+| Windows Release（2026-09-15 19:39，DB v22 安排优先版） | build/windows/x64/runner/Release | app.so 9,569,160 bytes |
+| Android APK 1.2.2+5（2026-09-15 12:41，DB v21 历史包） | build/app/outputs/flutter-apk/app-release.apk | 67,710,945 bytes；不是本批 v22 产物 |
 | Windows Release（2026-09-12，收件箱/安排/小部件代码版） | build/windows/x64/runner/Release | 35,961,052 bytes / 67 文件 |
 | Windows Release（2026-08-19，列表/安排版） | build/windows/x64/runner/Release | 37,238,613 bytes / 67 文件 |
 | Android APK 1.2.2+5（2026-08-16） | build/app/outputs/flutter-apk/app-release.apk | 64,362,945 bytes |
@@ -328,9 +351,9 @@ UI → Service → Repository → DatabaseProvider → SQLite（单向依赖，�
 
 ## 下次待办
 
-1. 侧装 2026-09-15 Android Release，验收固定七天、跨日拖动、同步今日/阶段、页面恢复与两个桌面小部件
-2. Windows/Android 同一邮箱验收阶段分组、顺序和日期同步
-3. 真机验收三点菜单、提示关闭、系统安全区和跨午夜“今天”刷新
+1. 在普通 PowerShell/Android Studio 构建 v22 Android Release，并核对 APK 更新时间
+2. 侧装 v22 包，验收安排单层导航、来源归档恢复、两级移动菜单、长按排序、页面恢复与两个桌面小部件
+3. Windows/Android 同一邮箱验收阶段、日期、完成来源和删除来源同步
 4. 外部会话重新设计小精灵动作素材，确认后再集成
 5. 决定是否从旧数据库备份恢复已删除内容
 6. 子任务 hover 边框 bug

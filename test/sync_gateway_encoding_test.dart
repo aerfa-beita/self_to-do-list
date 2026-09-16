@@ -54,9 +54,6 @@ void main() {
     expect(receivedBody, isNotNull, reason: '请求应已成功发出');
     final decoded = jsonDecode(receivedBody!) as List<dynamic>;
     final first = decoded.first as Map<String, dynamic>;
-    expect(first['payload'], {
-      'content': '办一张visa卡',
-      '备注': '中文特殊字符：±×÷',
-    });
+    expect(first['payload'], {'content': '办一张visa卡', '备注': '中文特殊字符：±×÷'});
   });
 }

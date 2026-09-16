@@ -15,6 +15,7 @@ class MemoScreen extends StatefulWidget {
   final NotificationService notificationService;
   final TaskMemoService taskMemoService;
   final TaskService taskService;
+  final ValueChanged<String>? onSectionChanged;
 
   const MemoScreen({
     super.key,
@@ -22,6 +23,7 @@ class MemoScreen extends StatefulWidget {
     required this.notificationService,
     required this.taskMemoService,
     required this.taskService,
+    this.onSectionChanged,
   });
 
   @override
@@ -51,6 +53,11 @@ class MemoScreenState extends State<MemoScreen> {
   Memo? _selectedMemo;
   // 提醒引导：每进程只提示一次（失败或白名单引导）
   bool _reminderWarningShown = false;
+
+  void _setFilter(String value) {
+    setState(() => _filter = value);
+    widget.onSectionChanged?.call(value == '全部' ? '全部备忘' : value);
+  }
 
   @override
   void initState() {
@@ -160,9 +167,7 @@ class MemoScreenState extends State<MemoScreen> {
         content: SizedBox(
           width: 420,
           child: hasChildren
-              ? Text(
-                  '该备忘录含 $subCount 个子备忘录，将整体转成 1 个 Todo + 子任务树，不再按行拆分。',
-                )
+              ? Text('该备忘录含 $subCount 个子备忘录，将整体转成 1 个 Todo + 子任务树，不再按行拆分。')
               : ListView(
                   shrinkWrap: true,
                   children: titles
@@ -249,9 +254,7 @@ class MemoScreenState extends State<MemoScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
-          subCount > 0
-              ? 'Todo 与备忘录及 $subCount 个子备忘录已关联'
-              : 'Todo 与备忘录已关联',
+          subCount > 0 ? 'Todo 与备忘录及 $subCount 个子备忘录已关联' : 'Todo 与备忘录已关联',
         ),
       ),
     );
@@ -848,8 +851,7 @@ class MemoScreenState extends State<MemoScreen> {
         } else if (ok &&
             mounted &&
             !_reminderWarningShown &&
-            !(await widget
-                .notificationService
+            !(await widget.notificationService
                 .isIgnoringBatteryOptimizations())) {
           // 排程成功但没进电池优化白名单：小米等 ROM 后台可能拦提醒，引导一次
           _reminderWarningShown = true;
@@ -858,8 +860,7 @@ class MemoScreenState extends State<MemoScreen> {
               content: const Text('为保证锁屏/后台也能准时提醒，建议允许后台运行'),
               action: SnackBarAction(
                 label: '去设置',
-                onPressed: () => widget
-                    .notificationService
+                onPressed: () => widget.notificationService
                     .requestIgnoreBatteryOptimizations(),
               ),
             ),
@@ -912,6 +913,7 @@ class MemoScreenState extends State<MemoScreen> {
                 onSelectToggle: () => _toggleSelect(memo.id!),
                 isExpanded: isExpanded,
                 onTap: memo.isDeleted ? () {} : () => _openMemo(memo),
+                onEdit: memo.isDeleted ? null : () => _editMemo(memo),
                 onToggleExpand: () => _toggleExpand(memo.id!),
                 onMoveUp: memo.isDeleted ? null : () => _moveUp(memo),
                 onMoveDown: memo.isDeleted ? null : () => _moveDown(memo),
@@ -975,6 +977,7 @@ class MemoScreenState extends State<MemoScreen> {
                 hasChildren: hasChildren,
                 isExpanded: isExpanded,
                 onTap: memo.isDeleted ? () {} : () => _openMemo(memo),
+                onEdit: memo.isDeleted ? null : () => _editMemo(memo),
                 onToggleExpand: () => _toggleExpand(memo.id!),
                 onMoveUp: memo.isDeleted ? null : () => _moveUp(memo),
                 onMoveDown: memo.isDeleted ? null : () => _moveDown(memo),
@@ -1153,8 +1156,12 @@ class MemoScreenState extends State<MemoScreen> {
                                                 result['name']!,
                                                 cat['color'] as String,
                                               );
-                                          if (_filter == name)
+                                          if (_filter == name) {
                                             _filter = result['name']!;
+                                            widget.onSectionChanged?.call(
+                                              result['name']!,
+                                            );
+                                          }
                                           await refreshCats();
                                           setSheetState(() {});
                                         }
@@ -1170,7 +1177,10 @@ class MemoScreenState extends State<MemoScreen> {
                                         await widget.memoService.deleteCategory(
                                           cat['id'] as int,
                                         );
-                                        if (_filter == name) _filter = '全部';
+                                        if (_filter == name) {
+                                          _filter = '全部';
+                                          widget.onSectionChanged?.call('全部备忘');
+                                        }
                                         await refreshCats();
                                         setSheetState(() {});
                                       },
@@ -1259,6 +1269,9 @@ class MemoScreenState extends State<MemoScreen> {
                 label: const Text('备忘录'),
                 onSelected: (_) {
                   setState(() => _showArchivedView = false);
+                  widget.onSectionChanged?.call(
+                    _filter == '全部' ? '全部备忘' : _filter,
+                  );
                   _loadRoots();
                 },
               ),
@@ -1269,6 +1282,7 @@ class MemoScreenState extends State<MemoScreen> {
                 label: const Text('归档'),
                 onSelected: (_) {
                   setState(() => _showArchivedView = true);
+                  widget.onSectionChanged?.call('已归档');
                   _loadRoots();
                 },
               ),
@@ -1311,7 +1325,7 @@ class MemoScreenState extends State<MemoScreen> {
                         vertical: 15,
                       ),
                       side: BorderSide(color: color.withAlpha(80)),
-                      onSelected: (_) => setState(() => _filter = label),
+                      onSelected: (_) => _setFilter(label),
                     ),
                   );
                 }),

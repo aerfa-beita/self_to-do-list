@@ -1,6 +1,6 @@
 ﻿# todo_list — 项目规则与进度
 
-> 最后更新：2026-09-15 · DB v21 · 路径 `D:\MY_Project\to-do_list`
+> 最后更新：2026-09-15 · DB v22 · 路径 `D:\MY_Project\to-do_list`
 > 技术栈/架构/环境详见 `project-docs/INDEX.md` + `STRUCTURE.md`
 
 ---
@@ -10,11 +10,11 @@
 | 项目 | 内容 |
 |------|------|
 | **日期** | 2026-09-15 |
-| **做了什么** | Android 本周固定周一至周日；今天仅显示未完成、过去日期保留完成记录；长按同日/同阶段排序，“调整日期”跨天，三点菜单增加同步阶段/同步今日。智能视图改为收件箱/已完成/最近删除/精灵窝，取消列表滑动完成并加入 Android 页面恢复。DB 升至 v21，新增独立 `week_sort_order` 并在升级前备份。 |
-| **下一步** | Flutter 全量测试 55/55、两张 390×844 组件基准图和 Windows Release 已通过。小花先生在普通终端已成功生成 Android Release，APK 结构与 v2 签名有效；下一步侧装验收跨日拖动、长按排序、页面恢复和桌面小部件。 |
-| **踩坑** | 本周历史回看必须向视图传入完成任务，不能沿用只含未完成任务的数据源；列表/阶段/本周排序需使用独立字段；`Dismissible` 设置 `secondaryBackground` 时必须同时提供 `background`；本周七天测试不可继续断言“其余 N 天”。 |
-| **已知问题** | Codex Windows 子进程内的 JBR 21 NIO/AF_UNIX 可能报 `Unable to establish loopback connection`；普通终端同命令成功，禁止再误判为项目或网络下载故障。当前无连接 Android 设备或可用 AVD，真机交互仍未验收。静态分析还有同步网关既有 2 条 warning；列表逐条读取子任务进度和重复处理提醒仍是性能后续项。 |
-| **自我改进** | 业务字段与视图排序拆分后必须同步覆盖 SQLite、导入、云同步和原生小部件；视觉改动先用固定尺寸基准图检查，再把真机验收限制写进交接，避免把组件截图当成装机证据。 |
+| **做了什么** | Android 改为“备忘录 / 安排”底部导航，安排顶部收敛为“本周 / 阶段 / 收件箱”。收件箱加入已安排，三类页面各自显示来源已完成/最近删除；已安排只管理不完成/删除。长按负责排序，多选改为明确按钮，任务与备忘录三点菜单统一图标和顺序。DB 升至 v22，新增 `completed_scope`、`deleted_scope`，同步、JSON、恢复规则和 Android 小部件一并适配。 |
+| **下一步** | Flutter 完整测试 61/61、静态分析和 Windows Release 已通过。Android 普通终端发现的小部件删除 `kind` 未传参已修复；Codex 重试被既有回环故障拦截，需小花先生在原普通终端重跑 Release，再侧装真机验收。 |
+| **踩坑** | Android 原生小部件新增来源参数时，必须沿 Intent → Activity → Store 的整条调用链传递；Flutter 测试不会编译 Kotlin，不能替代 Android Release 构建。 |
+| **已知问题** | Codex Windows 子进程内 Android Release 仍报 `Unable to establish loopback connection`；`kind` 源码错误已修复但需普通终端确认 Kotlin 编译。本批尚未生成 v22 APK，当前也无 Android 设备或 AVD。静态分析保留同步网关既有 2 条 warning；列表逐条读取子任务进度仍是性能后续项。 |
+| **自我改进** | 跨视图任务应把业务属性、视图排序、状态来源分开建模；手势只承担一个主要动作，长按排序后多选必须使用可见入口；发布验收必须核对产物时间和实际设备。 |
 
 ---
 
@@ -22,11 +22,12 @@
 
 | # | 内容 |
 |---|------|
-| — | 侧装 2026-09-15 12:41 的 v21 Android Release，实机验收固定七天、跨日拖动、阶段同步今日、页面恢复、最近删除确认与两个桌面小部件 |
+| — | 在普通 PowerShell/Android Studio 构建 v22 Android Release；当前 12:41 APK 是旧 v21 包，禁止作为本批验收产物 |
+| — | 侧装 v22 Android Release，实机验收安排顶部三页、来源已完成/最近删除、二级移动面板、长按排序、页面恢复与两个桌面小部件 |
 | — | 后续评估“逾期未完成集中处理”、常用任务模板、批量读取子任务进度和仅在任务变化时更新提醒 |
 | — | Windows Release 验收备忘录子树级联转 Todo：父+2 层子 memo 三入口行为（详情页 SubTask 树 / 按行生成提示 / 关联反查）+ 同步核对 |
 | — | 手机装最新 release（含 R8 + 精确闹钟 + 白名单引导）验收：开 app/划掉 app/重启手机 三场景设提醒 → 到点收到；同步、安排折叠区、小精灵脱节 |
-| — | Todo“列表｜安排”的 Windows 三列、Android 纵向、互转和双端同步实机验收 |
+| — | Windows/Android 同账号验收阶段、日期、完成来源和删除来源同步 |
 | — | Android“现在 / 本周”小部件待 Gradle 环境恢复后生成正式包，并做手机、平板 Launcher 实机验收 |
 | — | VS18 `cl.exe /Bv` 已恢复；交互式 CMD 已连续两次成功构建 Windows Release |
 | — | Supabase 本地公共配置与数据路径已修复；云端端点本轮超时，待双端同账号实连验收 |
@@ -40,6 +41,8 @@
 
 | 批次 | 内容 |
 |------|------|
+| 9/15 | Android 小部件删除操作补齐 `kind` 参数链，修复 `compileReleaseKotlin` 的 unresolved reference；见 `docs/2026-09-15-Android小部件删除作用域编译修复.md` |
+| 9/15 | Android“安排优先”整体改版、DB v22、来源归档与恢复、单层导航、已安排管理页及统一图标菜单；见 `docs/2026-09-15-Android安排优先整体改版.md` |
 | 9/15 | Gradle 回环报错定因：Codex Windows 子进程的 JBR NIO/AF_UNIX 环境异常；普通终端构建成功，APK 结构与 v2 签名有效；见 `docs/2026-09-15-Gradle回环连接诊断.md` |
 | 9/15 | Android 本周/阶段/列表重构、DB v21、本周独立排序、页面恢复与滑动误触修复；见 `docs/2026-09-15-Android本周阶段与列表改造.md` |
 | 9/13 | 收件箱独占已完成/最近删除、安排移除完成捷径、Android 小部件远程视图勾选兼容修复；见 `docs/2026-09-13-收件箱归属与小部件加载修复.md` |

@@ -33,6 +33,35 @@ void main() {
     );
   });
 
+  test('week restoration keeps weekday in the device current week', () {
+    final restored = TaskService.dateInCurrentWeek(
+      DateTime(2025, 1, 1), // Wednesday
+      now: DateTime(2026, 9, 15), // Tuesday
+    );
+    expect(restored, DateTime(2026, 9, 16));
+  });
+
+  test('legacy task maps infer completed and deleted source scopes', () {
+    final stamp = DateTime(2026, 9, 15).toIso8601String();
+    final stage = Task.fromMap({
+      'id': 1,
+      'title': '阶段完成',
+      'created_at': stamp,
+      'completed_at': stamp,
+      'task_mode': Task.planNowMode,
+    });
+    final week = Task.fromMap({
+      'id': 2,
+      'title': '本周删除',
+      'created_at': stamp,
+      'deleted_at': stamp,
+      'due_date': stamp,
+      'task_mode': Task.normalMode,
+    });
+    expect(stage.completedScope, Task.actionScopeStage);
+    expect(week.deletedScope, Task.actionScopeWeek);
+  });
+
   test(
     'memo lines generate concise Todo titles without Markdown rendering',
     () {
@@ -56,7 +85,7 @@ void main() {
       addTearDown(db.close);
 
       final version = await db.getVersion();
-      expect(version, 21);
+      expect(version, 22);
       final taskColumns = await db.rawQuery("PRAGMA table_info('tasks')");
       final memoColumns = await db.rawQuery("PRAGMA table_info('memos')");
       expect(
@@ -68,6 +97,8 @@ void main() {
           'companion_stashed_at',
           'task_mode',
           'week_sort_order',
+          'completed_scope',
+          'deleted_scope',
         ]),
       );
       expect(
@@ -124,13 +155,35 @@ void main() {
       expect((await service.getFlowTasks()).single.id, flowId);
       var steps = await service.getRootSubTasks(flowId);
       expect(steps.map((step) => step.sortOrder), [0, 1, 2]);
-      expect(await service.toggleSubTaskForTask(flow, steps[1]), isTrue);
-      expect(await service.toggleSubTaskForTask(flow, steps[0]), isTrue);
+      expect(
+        await service.toggleSubTaskForTask(
+          flow,
+          steps[1],
+          source: Task.actionScopeStage,
+        ),
+        isTrue,
+      );
+      expect(
+        await service.toggleSubTaskForTask(
+          flow,
+          steps[0],
+          source: Task.actionScopeStage,
+        ),
+        isTrue,
+      );
 
       steps = await service.getRootSubTasks(flowId);
-      expect(await service.toggleSubTaskForTask(flow, steps[2]), isTrue);
+      expect(
+        await service.toggleSubTaskForTask(
+          flow,
+          steps[2],
+          source: Task.actionScopeStage,
+        ),
+        isTrue,
+      );
       flow = (await taskRepository.getById(flowId))!;
       expect(flow.isCompleted, isTrue);
+      expect(flow.completedScope, Task.actionScopeStage);
 
       await service.setTaskMode(flow, Task.planNextMode);
       flow = (await taskRepository.getById(flowId))!;
@@ -142,6 +195,35 @@ void main() {
       expect((await service.getActiveTasks()).single.isFlow, isFalse);
     },
   );
+
+  test('completion and deletion preserve all three action sources', () async {
+    sqfliteFfiInit();
+    databaseFactory = databaseFactoryFfi;
+    final db = await DatabaseProvider().openAtPath(inMemoryDatabasePath);
+    addTearDown(db.close);
+    final repository = TaskRepository(db);
+    final service = TaskService(
+      repository,
+      SubTaskRepository(db),
+      CategoryRepository(db),
+    );
+
+    for (final scope in Task.actionScopes) {
+      final id = await service.insertTask(Task(title: '来源-$scope'));
+      var task = (await repository.getById(id))!;
+      await service.setTaskCompleted(task, completed: true, source: scope);
+      task = (await repository.getById(id))!;
+      expect(task.completedScope, scope);
+      await service.softDeleteTask(id, source: scope);
+      task = (await repository.getById(id))!;
+      expect(task.deletedScope, scope);
+      await service.restoreTask(id);
+      task = (await repository.getById(id))!;
+      expect(task.isDeleted, isFalse);
+      expect(task.isCompleted, isTrue);
+      expect(task.completedScope, scope);
+    }
+  });
 
   test('version 19 adds normal task mode without changing records', () async {
     sqfliteFfiInit();
@@ -180,7 +262,7 @@ void main() {
 
     final migrated = await DatabaseProvider().openAtPath(path);
     addTearDown(migrated.close);
-    expect(await migrated.getVersion(), 21);
+    expect(await migrated.getVersion(), 22);
     expect((await migrated.query('tasks')).single['title'], '原有普通任务');
     expect(
       (await migrated.query('tasks')).single['task_mode'],
@@ -236,12 +318,83 @@ void main() {
 
     final migrated = await DatabaseProvider().openAtPath(path);
     addTearDown(migrated.close);
-    expect(await migrated.getVersion(), 21);
+    expect(await migrated.getVersion(), 22);
     expect(await File(backupPath).exists(), isTrue);
     final row = (await migrated.query('tasks')).single;
     expect(row['title'], '迁移前任务');
     expect(row['sort_order'], 7);
     expect(row['week_sort_order'], 7);
+  });
+
+  test('version 21 migration backs up and infers action scopes', () async {
+    sqfliteFfiInit();
+    databaseFactory = databaseFactoryFfi;
+    final path = p.join(
+      Directory.systemTemp.path,
+      'todo_list_v21_${DateTime.now().microsecondsSinceEpoch}.db',
+    );
+    final backupPath = '$path.pre-v22';
+    addTearDown(() async {
+      for (final candidate in [path, backupPath]) {
+        final file = File(candidate);
+        if (await file.exists()) await file.delete();
+      }
+    });
+    final legacy = await databaseFactory.openDatabase(
+      path,
+      options: OpenDatabaseOptions(
+        version: 21,
+        onCreate: (db, _) async {
+          await db.execute('''
+            CREATE TABLE tasks(
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              title TEXT NOT NULL,
+              created_at TEXT NOT NULL,
+              completed_at TEXT,
+              deleted_at TEXT,
+              due_date TEXT,
+              task_mode TEXT NOT NULL DEFAULT 'normal',
+              sort_order INTEGER NOT NULL DEFAULT 0,
+              week_sort_order INTEGER NOT NULL DEFAULT 0
+            )
+          ''');
+          await db.execute(
+            'CREATE TABLE subtasks(id INTEGER PRIMARY KEY AUTOINCREMENT, task_id INTEGER NOT NULL, parent_id INTEGER, sort_order INTEGER NOT NULL DEFAULT 0)',
+          );
+          await db.execute(
+            'CREATE TABLE memos(id INTEGER PRIMARY KEY AUTOINCREMENT, parent_id INTEGER, created_at TEXT NOT NULL, sort_order INTEGER NOT NULL DEFAULT 0)',
+          );
+        },
+      ),
+    );
+    final stamp = DateTime(2026, 9, 15).toIso8601String();
+    await legacy.insert('tasks', {
+      'title': '阶段完成',
+      'created_at': stamp,
+      'completed_at': stamp,
+      'task_mode': Task.planNextMode,
+    });
+    await legacy.insert('tasks', {
+      'title': '本周删除',
+      'created_at': stamp,
+      'deleted_at': stamp,
+      'due_date': stamp,
+    });
+    await legacy.insert('tasks', {
+      'title': '收件箱完成',
+      'created_at': stamp,
+      'completed_at': stamp,
+    });
+    await legacy.close();
+
+    final migrated = await DatabaseProvider().openAtPath(path);
+    addTearDown(migrated.close);
+    expect(await migrated.getVersion(), 22);
+    expect(await File(backupPath).exists(), isTrue);
+    final rows = await migrated.query('tasks', orderBy: 'id ASC');
+    expect(rows[0]['completed_scope'], Task.actionScopeStage);
+    expect(rows[1]['deleted_scope'], Task.actionScopeWeek);
+    expect(rows[2]['completed_scope'], Task.actionScopeInbox);
   });
 
   test('version 17 data migrates without changing categories or records', () async {
@@ -306,7 +459,7 @@ void main() {
 
     final migrated = await DatabaseProvider().openAtPath(path);
     addTearDown(migrated.close);
-    expect(await migrated.getVersion(), 21);
+    expect(await migrated.getVersion(), 22);
     expect((await migrated.query('tasks')).single['title'], '保留的旧任务');
     expect((await migrated.query('memos')).single['content'], '保留的旧备忘录');
     expect((await migrated.query('categories')).single['name'], '工作');
@@ -593,7 +746,7 @@ void main() {
 
       final migrated = await DatabaseProvider().openAtPath(copyPath);
       addTearDown(migrated.close);
-      expect(await migrated.getVersion(), 21);
+      expect(await migrated.getVersion(), 22);
       for (final table in tables) {
         expect(
           (await migrated.rawQuery(

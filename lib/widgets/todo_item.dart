@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import '../models/task.dart';
 import '../models/sub_task.dart';
 import '../utils/date_utils.dart';
@@ -12,6 +11,8 @@ class TaskItem extends StatelessWidget {
   final VoidCallback onDelete;
   final VoidCallback onEdit;
   final ValueChanged<String>? onMoveToMode;
+  final void Function(BuildContext context)? onMoveToStage;
+  final void Function(BuildContext context)? onMoveToWeek;
   final VoidCallback? onRestore;
   final VoidCallback? onPermanentDelete;
   final VoidCallback? onMoveUp;
@@ -32,6 +33,7 @@ class TaskItem extends StatelessWidget {
   final VoidCallback? onComplete;
   final bool reorderable;
   final int? reorderIndex;
+  final bool managementOnly;
 
   const TaskItem({
     super.key,
@@ -42,6 +44,8 @@ class TaskItem extends StatelessWidget {
     required this.onDelete,
     required this.onEdit,
     this.onMoveToMode,
+    this.onMoveToStage,
+    this.onMoveToWeek,
     this.onRestore,
     this.onPermanentDelete,
     this.onMoveUp,
@@ -61,7 +65,16 @@ class TaskItem extends StatelessWidget {
     this.onComplete,
     this.reorderable = false,
     this.reorderIndex,
+    this.managementOnly = false,
   });
+
+  static Widget _menuLabel(IconData icon, String label, {Color? color}) => Row(
+    children: [
+      Icon(icon, size: 20, color: color),
+      const SizedBox(width: 12),
+      Text(label, style: color == null ? null : TextStyle(color: color)),
+    ],
+  );
 
   void _showTaskMenu(Offset position, BuildContext context) {
     if (task.isDeleted) return;
@@ -74,31 +87,72 @@ class TaskItem extends StatelessWidget {
         position.dy,
       ),
       items: [
-        const PopupMenuItem(value: 'edit', child: Text('编辑')),
-        if (onMoveToMode != null)
+        const PopupMenuItem(
+          value: 'edit',
+          child: Row(
+            children: [
+              Icon(Icons.edit_outlined, size: 20),
+              SizedBox(width: 12),
+              Text('编辑'),
+            ],
+          ),
+        ),
+        if (onMoveToStage != null)
+          const PopupMenuItem(
+            value: 'move_stage',
+            child: Row(
+              children: [
+                Icon(Icons.view_kanban_outlined, size: 20),
+                SizedBox(width: 12),
+                Text('移到阶段'),
+              ],
+            ),
+          ),
+        if (onMoveToWeek != null)
+          const PopupMenuItem(
+            value: 'move_week',
+            child: Row(
+              children: [
+                Icon(Icons.calendar_view_week_outlined, size: 20),
+                SizedBox(width: 12),
+                Text('移到本周'),
+              ],
+            ),
+          ),
+        if (onMoveToStage == null &&
+            onMoveToWeek == null &&
+            onMoveToMode != null)
           if (task.isArranged)
-            const PopupMenuItem(value: 'move_back', child: Text('移回列表'))
+            const PopupMenuItem(value: 'move_back', child: Text('移回收件箱'))
           else ...[
             const PopupMenuItem(value: 'plan_now', child: Text('移到：现在')),
             const PopupMenuItem(value: 'plan_next', child: Text('移到：接下来')),
             const PopupMenuItem(value: 'plan_later', child: Text('移到：稍后')),
           ],
-        const PopupMenuItem(value: 'delete', child: Text('删除')),
-        if (onMoveUp != null && canMoveUp)
-          const PopupMenuItem(value: 'move_up', child: Text('⬆ 上移')),
-        if (onMoveDown != null && canMoveDown)
-          const PopupMenuItem(value: 'move_down', child: Text('⬇ 下移')),
+        if (!managementOnly) const PopupMenuDivider(),
+        if (!managementOnly)
+          const PopupMenuItem(
+            value: 'delete',
+            child: Row(
+              children: [
+                Icon(Icons.delete_outline, size: 20, color: Colors.red),
+                SizedBox(width: 12),
+                Text('删除', style: TextStyle(color: Colors.red)),
+              ],
+            ),
+          ),
       ],
     ).then((v) {
       if (v == null) return;
+      if (!context.mounted) return;
       if (v == 'edit') onEdit();
+      if (v == 'move_stage') onMoveToStage?.call(context);
+      if (v == 'move_week') onMoveToWeek?.call(context);
       if (v == 'move_back') onMoveToMode?.call(Task.normalMode);
       if (v == 'plan_now') onMoveToMode?.call(Task.planNowMode);
       if (v == 'plan_next') onMoveToMode?.call(Task.planNextMode);
       if (v == 'plan_later') onMoveToMode?.call(Task.planLaterMode);
       if (v == 'delete') onDelete();
-      if (v == 'move_up') onMoveUp?.call();
-      if (v == 'move_down') onMoveDown?.call();
     });
   }
 
@@ -129,7 +183,7 @@ class TaskItem extends StatelessWidget {
             onTap: task.isDeleted
                 ? null
                 : (selectMode ? onSelectToggle : onTap),
-            onLongPress: task.isDeleted ? null : onSelectToggle,
+            onLongPress: null,
             onSecondaryTapUp: selectMode
                 ? null
                 : (task.isDeleted
@@ -148,7 +202,7 @@ class TaskItem extends StatelessWidget {
                       visualDensity: VisualDensity.compact,
                       onChanged: (_) => onSelectToggle?.call(),
                     )
-                  else if (!task.isDeleted)
+                  else if (!task.isDeleted && !managementOnly)
                     IconButton(
                       visualDensity: VisualDensity.compact,
                       tooltip: allDone ? '已完成' : '完成',
@@ -251,7 +305,7 @@ class TaskItem extends StatelessWidget {
                       ),
                     ),
                   ],
-                  _buildMenu(allDone),
+                  _buildMenu(allDone, context),
                 ],
               ),
             ),
@@ -333,7 +387,7 @@ class TaskItem extends StatelessWidget {
                   if (task.isArranged)
                     ListTile(
                       leading: const Icon(Icons.view_list_outlined),
-                      title: const Text('移回列表'),
+                      title: const Text('移回收件箱'),
                       onTap: () => Navigator.pop(sheetContext, 'move_back'),
                     )
                   else ...[
@@ -362,6 +416,7 @@ class TaskItem extends StatelessWidget {
             ),
           ),
         );
+        if (!context.mounted) return false;
         if (action == 'edit') onEdit();
         if (action == 'move_back') onMoveToMode?.call(Task.normalMode);
         if (action == 'plan_now') onMoveToMode?.call(Task.planNowMode);
@@ -413,7 +468,7 @@ class TaskItem extends StatelessWidget {
               visualDensity: VisualDensity.compact,
               onChanged: (_) => onSelectToggle?.call(),
             )
-          else if (!task.isDeleted)
+          else if (!task.isDeleted && !managementOnly)
             SizedBox(
               width: 48,
               height: 56,
@@ -432,7 +487,7 @@ class TaskItem extends StatelessWidget {
               onTap: task.isDeleted
                   ? null
                   : (selectMode ? onSelectToggle : onTap),
-              onLongPress: task.isDeleted ? null : onSelectToggle,
+              onLongPress: null,
               borderRadius: BorderRadius.circular(12),
               child: Padding(
                 padding: const EdgeInsets.symmetric(vertical: 8),
@@ -463,29 +518,16 @@ class TaskItem extends StatelessWidget {
             ),
           ),
           if (!selectMode)
-            SizedBox(width: 48, height: 56, child: _buildMenu(allDone)),
-          if (canDrag)
-            Listener(
-              onPointerDown: (_) => HapticFeedback.selectionClick(),
-              child: ReorderableDelayedDragStartListener(
-                index: reorderIndex!,
-                child: SizedBox(
-                  width: 48,
-                  height: 56,
-                  child: Center(
-                    child: Icon(
-                      Icons.drag_handle,
-                      color: colors.onSurfaceVariant,
-                    ),
-                  ),
-                ),
-              ),
+            SizedBox(
+              width: 48,
+              height: 56,
+              child: _buildMenu(allDone, context),
             ),
         ],
       ),
     );
     if (task.isDeleted || selectMode) return card;
-    return Dismissible(
+    final swipeCard = Dismissible(
       key: ValueKey('task-swipe-${task.id}'),
       direction: DismissDirection.endToStart,
       background: const SizedBox.shrink(),
@@ -511,11 +553,30 @@ class TaskItem extends StatelessWidget {
                   title: const Text('编辑'),
                   onTap: () => Navigator.pop(sheetContext, 'edit'),
                 ),
-                if (onMoveToMode != null)
+                if (onMoveToStage != null)
+                  ListTile(
+                    minTileHeight: 48,
+                    leading: const Icon(Icons.view_kanban_outlined, size: 20),
+                    title: const Text('移到阶段'),
+                    onTap: () => Navigator.pop(sheetContext, 'move_stage'),
+                  ),
+                if (onMoveToWeek != null)
+                  ListTile(
+                    minTileHeight: 48,
+                    leading: const Icon(
+                      Icons.calendar_view_week_outlined,
+                      size: 20,
+                    ),
+                    title: const Text('移到本周'),
+                    onTap: () => Navigator.pop(sheetContext, 'move_week'),
+                  ),
+                if (onMoveToStage == null &&
+                    onMoveToWeek == null &&
+                    onMoveToMode != null)
                   if (task.isArranged)
                     ListTile(
                       leading: const Icon(Icons.view_list_outlined),
-                      title: const Text('移回列表'),
+                      title: const Text('移回收件箱'),
                       onTap: () => Navigator.pop(sheetContext, 'move_back'),
                     )
                   else ...[
@@ -535,16 +596,26 @@ class TaskItem extends StatelessWidget {
                       onTap: () => Navigator.pop(sheetContext, 'plan_later'),
                     ),
                   ],
-                ListTile(
-                  leading: const Icon(Icons.delete_outline, color: Colors.red),
-                  title: const Text('删除', style: TextStyle(color: Colors.red)),
-                  onTap: () => Navigator.pop(sheetContext, 'delete'),
-                ),
+                if (!managementOnly)
+                  ListTile(
+                    leading: const Icon(
+                      Icons.delete_outline,
+                      color: Colors.red,
+                    ),
+                    title: const Text(
+                      '删除',
+                      style: TextStyle(color: Colors.red),
+                    ),
+                    onTap: () => Navigator.pop(sheetContext, 'delete'),
+                  ),
               ],
             ),
           ),
         );
+        if (!context.mounted) return false;
         if (action == 'edit') onEdit();
+        if (action == 'move_stage') onMoveToStage?.call(context);
+        if (action == 'move_week') onMoveToWeek?.call(context);
         if (action == 'move_back') onMoveToMode?.call(Task.normalMode);
         if (action == 'plan_now') onMoveToMode?.call(Task.planNowMode);
         if (action == 'plan_next') onMoveToMode?.call(Task.planNextMode);
@@ -553,6 +624,11 @@ class TaskItem extends StatelessWidget {
         return false;
       },
       child: card,
+    );
+    if (!canDrag) return swipeCard;
+    return ReorderableDelayedDragStartListener(
+      index: reorderIndex!,
+      child: swipeCard,
     );
   }
 
@@ -596,7 +672,7 @@ class TaskItem extends StatelessWidget {
     );
   }
 
-  Widget _buildMenu(bool allDone) {
+  Widget _buildMenu(bool allDone, BuildContext context) {
     if (task.isDeleted) {
       return PopupMenuButton<String>(
         key: Key('task-more-${task.id}'),
@@ -609,9 +685,19 @@ class TaskItem extends StatelessWidget {
           if (v == 'perm_delete') onPermanentDelete?.call();
         },
         itemBuilder: (_) => [
-          const PopupMenuItem(value: 'restore', child: Text('恢复')),
+          PopupMenuItem(
+            value: 'restore',
+            child: _menuLabel(Icons.restore_outlined, '恢复'),
+          ),
           const PopupMenuDivider(),
-          const PopupMenuItem(value: 'perm_delete', child: Text('永久删除')),
+          PopupMenuItem(
+            value: 'perm_delete',
+            child: _menuLabel(
+              Icons.delete_forever_outlined,
+              '永久删除',
+              color: Colors.red,
+            ),
+          ),
         ],
       );
     }
@@ -623,30 +709,45 @@ class TaskItem extends StatelessWidget {
       constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
       onSelected: (v) {
         if (v == 'edit') onEdit();
+        if (v == 'move_stage') onMoveToStage?.call(context);
+        if (v == 'move_week') onMoveToWeek?.call(context);
         if (v == 'move_back') onMoveToMode?.call(Task.normalMode);
         if (v == 'plan_now') onMoveToMode?.call(Task.planNowMode);
         if (v == 'plan_next') onMoveToMode?.call(Task.planNextMode);
         if (v == 'plan_later') onMoveToMode?.call(Task.planLaterMode);
         if (v == 'delete') onDelete();
-        if (v == 'move_up') onMoveUp?.call();
-        if (v == 'move_down') onMoveDown?.call();
       },
       itemBuilder: (_) => [
-        const PopupMenuItem(value: 'edit', child: Text('编辑')),
-        if (onMoveToMode != null)
+        PopupMenuItem(
+          value: 'edit',
+          child: _menuLabel(Icons.edit_outlined, '编辑'),
+        ),
+        if (onMoveToStage != null)
+          PopupMenuItem(
+            value: 'move_stage',
+            child: _menuLabel(Icons.view_kanban_outlined, '移到阶段'),
+          ),
+        if (onMoveToWeek != null)
+          PopupMenuItem(
+            value: 'move_week',
+            child: _menuLabel(Icons.calendar_view_week_outlined, '移到本周'),
+          ),
+        if (onMoveToStage == null &&
+            onMoveToWeek == null &&
+            onMoveToMode != null)
           if (task.isArranged)
-            const PopupMenuItem(value: 'move_back', child: Text('移回列表'))
+            const PopupMenuItem(value: 'move_back', child: Text('移回收件箱'))
           else ...[
             const PopupMenuItem(value: 'plan_now', child: Text('移到：现在')),
             const PopupMenuItem(value: 'plan_next', child: Text('移到：接下来')),
             const PopupMenuItem(value: 'plan_later', child: Text('移到：稍后')),
           ],
-        if (onMoveUp != null && canMoveUp)
-          const PopupMenuItem(value: 'move_up', child: Text('⬆ 上移')),
-        if (onMoveDown != null && canMoveDown)
-          const PopupMenuItem(value: 'move_down', child: Text('⬇ 下移')),
-        const PopupMenuDivider(),
-        const PopupMenuItem(value: 'delete', child: Text('删除')),
+        if (!managementOnly) const PopupMenuDivider(),
+        if (!managementOnly)
+          PopupMenuItem(
+            value: 'delete',
+            child: _menuLabel(Icons.delete_outline, '删除', color: Colors.red),
+          ),
       ],
     );
   }

@@ -19,6 +19,13 @@ class TaskService {
     void Function()? onChanged,
   }) : _onChanged = onChanged;
 
+  static DateTime dateInCurrentWeek(DateTime reference, {DateTime? now}) {
+    final localNow = now ?? DateTime.now();
+    final today = DateTime(localNow.year, localNow.month, localNow.day);
+    final monday = today.subtract(Duration(days: today.weekday - 1));
+    return monday.add(Duration(days: reference.weekday - 1));
+  }
+
   Future<T> _withSync<T>(Future<T> operation) async {
     final result = await operation;
     _onChanged?.call();
@@ -225,11 +232,7 @@ class TaskService {
   }) async {
     final progress = await _subtaskRepo.getProgress(taskId);
     if (progress.total > 0 && progress.total == progress.done) {
-      await _taskRepo.setCompletedAt(
-        taskId,
-        DateTime.now(),
-        source: source,
-      );
+      await _taskRepo.setCompletedAt(taskId, DateTime.now(), source: source);
     } else {
       await _taskRepo.setCompletedAt(taskId, null);
     }

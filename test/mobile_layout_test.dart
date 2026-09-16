@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:todo_list/database/database.dart';
+import 'package:todo_list/main.dart';
 import 'package:todo_list/models/task.dart';
 import 'package:todo_list/repositories/category_repository.dart';
 import 'package:todo_list/repositories/memo_category_repository.dart';
@@ -15,6 +16,10 @@ import 'package:todo_list/services/memo_service.dart';
 import 'package:todo_list/services/notification_service.dart';
 import 'package:todo_list/services/task_memo_service.dart';
 import 'package:todo_list/services/task_service.dart';
+import 'package:todo_list/sync/supabase_sync_gateway.dart';
+import 'package:todo_list/sync/sync_config.dart';
+import 'package:todo_list/sync/sync_coordinator.dart';
+import 'package:todo_list/sync/sync_engine.dart';
 import 'package:todo_list/widgets/workload_companion.dart';
 
 void main() {
@@ -65,13 +70,11 @@ void main() {
       ),
     );
     await waitForNativeDatabase(tester);
+    screenKey.currentState!.setPrimaryPage(TodoPrimaryPage.inbox);
+    await tester.pump();
 
     expect(find.byType(TextField), findsNothing);
     await tester.longPress(find.text('长按取消测试'));
-    await tester.pump();
-    expect(find.byKey(const Key('todo-selection-cancel')), findsOneWidget);
-    expect(find.byKey(const Key('todo-selection-more')), findsOneWidget);
-    await tester.tap(find.byKey(const Key('todo-selection-cancel')));
     await tester.pump();
     expect(find.byKey(const Key('todo-selection-cancel')), findsNothing);
     expect(tester.getSize(find.byType(WorkloadCompanion)), const Size(48, 48));
@@ -79,7 +82,7 @@ void main() {
       find.byKey(const ValueKey('companion-edge-tap-target')),
       findsOneWidget,
     );
-    expect(find.byKey(const Key('todo-display-mode')), findsOneWidget);
+    expect(find.byKey(const Key('todo-display-mode')), findsNothing);
     expect(find.byKey(const Key('todo-mobile-toolbar')), findsOneWidget);
     expect(find.byKey(const Key('todo-mobile-filter-button')), findsOneWidget);
     await tester.tap(find.byKey(const Key('todo-mobile-filter-button')));
@@ -87,10 +90,16 @@ void main() {
     await tester.pump(const Duration(milliseconds: 300));
     expect(find.text('筛选与统计'), findsOneWidget);
     expect(find.byType(TextField), findsOneWidget);
-    await tester.tap(find.byTooltip('关闭'));
-    await tester.pump();
+    expect(find.byKey(const Key('todo-mobile-select-button')), findsOneWidget);
+    await tester.tap(find.byKey(const Key('todo-mobile-select-button')));
     await tester.pump(const Duration(milliseconds: 300));
-    await tester.tap(find.text('安排').first);
+    await tester.tap(find.text('长按取消测试'));
+    await tester.pump();
+    expect(find.byKey(const Key('todo-selection-cancel')), findsOneWidget);
+    expect(find.byKey(const Key('todo-selection-more')), findsOneWidget);
+    await tester.tap(find.byKey(const Key('todo-selection-cancel')));
+    await tester.pump();
+    screenKey.currentState!.setPrimaryPage(TodoPrimaryPage.stage);
     await tester.pump();
     expect(find.byKey(const Key('arrangement-mobile')), findsOneWidget);
     expect(find.textContaining('未安排任务'), findsNothing);
@@ -141,6 +150,82 @@ void main() {
 
     expect(find.byType(TextField), findsNothing);
     expect(find.text('还没有备忘录，点右下角创建'), findsOneWidget);
+    await tester.pumpWidget(const SizedBox.shrink());
+    await waitForNativeDatabase(tester);
+  });
+
+  testWidgets('mobile app shell uses arrange-first single-level navigation', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(390, 844);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.view.resetPhysicalSize);
+    final db = (await tester.runAsync(() async {
+      sqfliteFfiInit();
+      databaseFactory = databaseFactoryFfi;
+      return DatabaseProvider().openAtPath(inMemoryDatabasePath);
+    }))!;
+    addTearDown(() => tester.runAsync(db.close));
+    const config = SyncConfig(
+      supabaseUrl: '',
+      anonKey: '',
+      accessToken: '',
+      userId: '',
+      realtimeEnabled: false,
+    );
+    final gateway = SupabaseSyncGateway(config, db);
+    final coordinator = SyncCoordinator(
+      config: config,
+      engine: SyncEngine(db, gateway),
+      gateway: gateway,
+      isAuthenticated: () => false,
+    );
+    final taskRepository = TaskRepository(db);
+    final subTaskRepository = SubTaskRepository(db);
+    final memoService = MemoService(
+      MemoRepository(db),
+      MemoCategoryRepository(db),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: MainScreen(
+          taskService: TaskService(
+            taskRepository,
+            subTaskRepository,
+            CategoryRepository(db),
+          ),
+          memoService: memoService,
+          notificationService: NotificationService(),
+          taskMemoService: TaskMemoService(
+            taskRepository,
+            TaskMemoRepository(db),
+            subTaskRepository,
+            memoService,
+          ),
+          syncCoordinator: coordinator,
+          syncGateway: gateway,
+          syncConfig: config,
+        ),
+      ),
+    );
+    await waitForNativeDatabase(tester);
+    expect(find.byType(NavigationBar), findsOneWidget);
+    expect(find.text('备忘录'), findsWidgets);
+    expect(find.text('安排'), findsOneWidget);
+
+    await tester.tap(find.text('安排'));
+    await tester.pump(const Duration(milliseconds: 400));
+    await waitForNativeDatabase(tester);
+    expect(find.byKey(const Key('todo-primary-navigation')), findsOneWidget);
+    expect(find.text('本周'), findsOneWidget);
+    expect(find.text('阶段'), findsOneWidget);
+    expect(find.text('收件箱'), findsOneWidget);
+    expect(find.byKey(const Key('todo-display-mode')), findsNothing);
+    expect(find.text('Todo List'), findsNothing);
+    expect(tester.takeException(), isNull);
+
     await tester.pumpWidget(const SizedBox.shrink());
     await waitForNativeDatabase(tester);
   });

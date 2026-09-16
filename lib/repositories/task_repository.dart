@@ -35,8 +35,8 @@ class TaskRepository {
     int taskId, {
     String source = Task.actionScopeInbox,
   }) async {
-    final normalized = Task.normalizeActionScope(source) ??
-        Task.actionScopeInbox;
+    final normalized =
+        Task.normalizeActionScope(source) ?? Task.actionScopeInbox;
     await _db.update(
       'tasks',
       {
@@ -56,8 +56,8 @@ class TaskRepository {
     final ids = taskIds.toSet().toList(growable: false);
     if (ids.isEmpty) return;
     final deletedAt = DateTime.now().toIso8601String();
-    final normalized = Task.normalizeActionScope(source) ??
-        Task.actionScopeInbox;
+    final normalized =
+        Task.normalizeActionScope(source) ?? Task.actionScopeInbox;
     await _db.transaction((txn) async {
       for (final taskId in ids) {
         await txn.update(

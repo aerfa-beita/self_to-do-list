@@ -29,7 +29,7 @@ import 'screens/memo_screen.dart';
 final todoScreenKey = GlobalKey<TodoScreenState>();
 final memoScreenKey = GlobalKey<MemoScreenState>();
 final themeModeNotifier = ValueNotifier<ThemeMode>(ThemeMode.system);
-final currentTabIndex = ValueNotifier<int>(0); // 0=备忘录, 1=Todo
+final currentTabIndex = ValueNotifier<int>(0); // 0=备忘录, 1=安排
 
 void toggleTheme() {
   final newMode = themeModeNotifier.value == ThemeMode.dark
@@ -274,7 +274,9 @@ class _MainScreenState extends State<MainScreen>
     with SingleTickerProviderStateMixin {
   late final TabController _tabController;
   bool _dialogShowing = false;
-  bool _todoArrangementMode = false;
+  bool _todoArrangementMode = true;
+  TodoPrimaryPage _todoPrimaryPage = TodoPrimaryPage.week;
+  String _memoSectionTitle = '全部备忘';
   late final BackupFileService _backupFileService;
   DateTime? _lastRenderedSyncAt;
 
@@ -647,8 +649,46 @@ class _MainScreenState extends State<MainScreen>
     final isCompact = MediaQuery.sizeOf(context).width < 900;
     return Scaffold(
       appBar: AppBar(
-        title: Text(isMemo ? '备忘录' : 'Todo List'),
+        titleSpacing: isCompact ? 8 : 16,
+        title: isMemo
+            ? Text(_memoSectionTitle)
+            : SegmentedButton<TodoPrimaryPage>(
+                key: const Key('todo-primary-navigation'),
+                showSelectedIcon: false,
+                segments: const [
+                  ButtonSegment(value: TodoPrimaryPage.week, label: Text('本周')),
+                  ButtonSegment(
+                    value: TodoPrimaryPage.stage,
+                    label: Text('阶段'),
+                  ),
+                  ButtonSegment(
+                    value: TodoPrimaryPage.inbox,
+                    label: Text('收件箱'),
+                  ),
+                ],
+                selected: {_todoPrimaryPage},
+                style: ButtonStyle(
+                  visualDensity: VisualDensity.compact,
+                  padding: WidgetStateProperty.all(
+                    EdgeInsets.symmetric(horizontal: isCompact ? 6 : 12),
+                  ),
+                ),
+                onSelectionChanged: (selection) {
+                  final page = selection.first;
+                  setState(() {
+                    _todoPrimaryPage = page;
+                    _todoArrangementMode = page != TodoPrimaryPage.inbox;
+                  });
+                  todoScreenKey.currentState?.setPrimaryPage(page);
+                },
+              ),
         actions: [
+          if (isMemo)
+            IconButton(
+              tooltip: '搜索备忘录',
+              onPressed: () => memoScreenKey.currentState?.focusSearch(),
+              icon: const Icon(Icons.search_rounded),
+            ),
           ValueListenableBuilder<SyncStatus>(
             valueListenable: widget.syncCoordinator.status,
             builder: (_, sync, _) => IconButton(
@@ -699,8 +739,26 @@ class _MainScreenState extends State<MainScreen>
                 ),
               ),
               const PopupMenuDivider(),
-              const PopupMenuItem(value: 'export', child: Text('导出 JSON 备份')),
-              const PopupMenuItem(value: 'import', child: Text('合并导入 JSON')),
+              const PopupMenuItem(
+                value: 'export',
+                child: Row(
+                  children: [
+                    Icon(Icons.file_upload_outlined, size: 20),
+                    SizedBox(width: 12),
+                    Text('导出 JSON 备份'),
+                  ],
+                ),
+              ),
+              const PopupMenuItem(
+                value: 'import',
+                child: Row(
+                  children: [
+                    Icon(Icons.file_download_outlined, size: 20),
+                    SizedBox(width: 12),
+                    Text('合并导入 JSON'),
+                  ],
+                ),
+              ),
             ],
             icon: const Icon(Icons.more_vert),
           ),
@@ -717,6 +775,10 @@ class _MainScreenState extends State<MainScreen>
                 taskMemoService: widget.taskMemoService,
                 taskService: widget.taskService,
                 notificationService: widget.notificationService,
+                onSectionChanged: (title) {
+                  if (_memoSectionTitle == title) return;
+                  setState(() => _memoSectionTitle = title);
+                },
               ),
               TodoScreen(
                 key: todoScreenKey,
@@ -726,6 +788,13 @@ class _MainScreenState extends State<MainScreen>
                 onArrangementModeChanged: (value) {
                   if (_todoArrangementMode == value) return;
                   setState(() => _todoArrangementMode = value);
+                },
+                onPrimaryPageChanged: (page) {
+                  if (_todoPrimaryPage == page) return;
+                  setState(() {
+                    _todoPrimaryPage = page;
+                    _todoArrangementMode = page != TodoPrimaryPage.inbox;
+                  });
                 },
               ),
             ],
@@ -754,7 +823,7 @@ class _MainScreenState extends State<MainScreen>
                   NavigationRailDestination(
                     icon: Icon(Icons.checklist_outlined),
                     selectedIcon: Icon(Icons.checklist_rounded),
-                    label: Text('Todo'),
+                    label: Text('安排'),
                   ),
                 ],
               ),
@@ -780,7 +849,7 @@ class _MainScreenState extends State<MainScreen>
                 NavigationDestination(
                   icon: Icon(Icons.checklist_outlined),
                   selectedIcon: Icon(Icons.checklist_rounded),
-                  label: 'Todo',
+                  label: '安排',
                 ),
               ],
             )

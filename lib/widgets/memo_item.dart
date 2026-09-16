@@ -10,6 +10,7 @@ class MemoItem extends StatelessWidget {
   final bool hasChildren;
   final bool isExpanded;
   final VoidCallback onTap;
+  final VoidCallback? onEdit;
   final VoidCallback onToggleExpand;
   final VoidCallback? onMoveUp;
   final VoidCallback? onMoveDown;
@@ -35,6 +36,7 @@ class MemoItem extends StatelessWidget {
     required this.hasChildren,
     required this.isExpanded,
     required this.onTap,
+    this.onEdit,
     required this.onToggleExpand,
     this.onMoveUp,
     this.onMoveDown,
@@ -63,45 +65,58 @@ class MemoItem extends StatelessWidget {
         position.dy,
       ),
       items: [
-        if (onMoveUp != null && index > 0 && !memo.isDeleted)
-          const PopupMenuItem(value: 'up', child: Text('⬆ 上移')),
-        if (onMoveDown != null && index < total - 1 && !memo.isDeleted)
-          const PopupMenuItem(value: 'down', child: Text('⬇ 下移')),
-        if (onPromote != null && !memo.isDeleted)
-          const PopupMenuItem(value: 'promote', child: Text('← 提升')),
-        if (onDemote != null && index > 0 && !memo.isDeleted)
-          const PopupMenuItem(value: 'demote', child: Text('→ 降入')),
-        if (onAddChild != null && !memo.isDeleted)
-          const PopupMenuItem(value: 'add_child', child: Text('＋ 添加子项')),
+        if (!memo.isDeleted && onEdit != null)
+          const PopupMenuItem(
+            value: 'edit',
+            child: _MemoMenuLabel(Icons.edit_outlined, '编辑'),
+          ),
         if (onPin != null)
           PopupMenuItem(
             value: 'pin',
-            child: Text(memo.isPinned ? '取消置顶' : '置顶'),
+            child: _MemoMenuLabel(
+              Icons.push_pin_outlined,
+              memo.isPinned ? '取消置顶' : '置顶',
+            ),
           ),
         if (onArchive != null)
           PopupMenuItem(
             value: 'archive',
-            child: Text(memo.isArchived ? '移出归档' : '归档'),
+            child: _MemoMenuLabel(
+              Icons.archive_outlined,
+              memo.isArchived ? '移出归档' : '归档',
+            ),
           ),
         if (onConvertTodo != null)
-          const PopupMenuItem(value: 'convert_todo', child: Text('转为 Todo')),
-        if (onGenerateTodos != null)
           const PopupMenuItem(
-            value: 'generate_todos',
-            child: Text('按行生成多个 Todo'),
+            value: 'convert_todo',
+            child: _MemoMenuLabel(Icons.task_alt_outlined, '转为任务'),
           ),
         if (onLinkTodo != null)
-          const PopupMenuItem(value: 'link_todo', child: Text('关联已有 Todo')),
+          const PopupMenuItem(
+            value: 'link_todo',
+            child: _MemoMenuLabel(Icons.link_outlined, '关联任务'),
+          ),
         if (memo.isDeleted)
-          const PopupMenuItem(value: 'restore', child: Text('↩ 恢复')),
+          const PopupMenuItem(
+            value: 'restore',
+            child: _MemoMenuLabel(Icons.restore_outlined, '恢复'),
+          ),
+        const PopupMenuDivider(),
         PopupMenuItem(
           value: 'delete',
-          child: Text(memo.isDeleted ? '🗑 永久删除' : '🗑 删除'),
+          child: _MemoMenuLabel(
+            Icons.delete_outline,
+            memo.isDeleted ? '永久删除' : '删除',
+            color: Colors.red,
+          ),
         ),
       ],
     ).then((v) {
       if (v == null) return;
       switch (v) {
+        case 'edit':
+          onEdit?.call();
+          break;
         case 'up':
           onMoveUp?.call();
           break;
@@ -273,6 +288,9 @@ class MemoItem extends StatelessWidget {
                       icon: Icon(Icons.more_vert, color: Colors.grey.shade500),
                       onSelected: (v) {
                         switch (v) {
+                          case 'edit':
+                            onEdit?.call();
+                            break;
                           case 'up':
                             onMoveUp?.call();
                             break;
@@ -312,64 +330,53 @@ class MemoItem extends StatelessWidget {
                         }
                       },
                       itemBuilder: (_) => [
-                        if (onMoveUp != null && index > 0 && !memo.isDeleted)
-                          const PopupMenuItem(value: 'up', child: Text('⬆ 上移')),
-                        if (onMoveDown != null &&
-                            index < total - 1 &&
-                            !memo.isDeleted)
+                        if (!memo.isDeleted && onEdit != null)
                           const PopupMenuItem(
-                            value: 'down',
-                            child: Text('⬇ 下移'),
-                          ),
-                        if (onPromote != null && !memo.isDeleted)
-                          const PopupMenuItem(
-                            value: 'promote',
-                            child: Text('← 提升'),
-                          ),
-                        if (onDemote != null && index > 0 && !memo.isDeleted)
-                          const PopupMenuItem(
-                            value: 'demote',
-                            child: Text('→ 降入'),
-                          ),
-                        if (onAddChild != null && !memo.isDeleted)
-                          const PopupMenuItem(
-                            value: 'add_child',
-                            child: Text('＋ 添加子项'),
+                            value: 'edit',
+                            child: _MemoMenuLabel(Icons.edit_outlined, '编辑'),
                           ),
                         if (onPin != null)
                           PopupMenuItem(
                             value: 'pin',
-                            child: Text(memo.isPinned ? '取消置顶' : '置顶'),
+                            child: _MemoMenuLabel(
+                              Icons.push_pin_outlined,
+                              memo.isPinned ? '取消置顶' : '置顶',
+                            ),
                           ),
                         if (onArchive != null)
                           PopupMenuItem(
                             value: 'archive',
-                            child: Text(memo.isArchived ? '移出归档' : '归档'),
+                            child: _MemoMenuLabel(
+                              Icons.archive_outlined,
+                              memo.isArchived ? '移出归档' : '归档',
+                            ),
                           ),
                         if (onConvertTodo != null)
                           const PopupMenuItem(
                             value: 'convert_todo',
-                            child: Text('转为 Todo'),
-                          ),
-                        if (onGenerateTodos != null)
-                          const PopupMenuItem(
-                            value: 'generate_todos',
-                            child: Text('按行生成多个 Todo'),
+                            child: _MemoMenuLabel(
+                              Icons.task_alt_outlined,
+                              '转为任务',
+                            ),
                           ),
                         if (onLinkTodo != null)
                           const PopupMenuItem(
                             value: 'link_todo',
-                            child: Text('关联已有 Todo'),
+                            child: _MemoMenuLabel(Icons.link_outlined, '关联任务'),
                           ),
                         if (memo.isDeleted)
                           const PopupMenuItem(
                             value: 'restore',
-                            child: Text('↩ 恢复'),
+                            child: _MemoMenuLabel(Icons.restore_outlined, '恢复'),
                           ),
                         const PopupMenuDivider(),
                         PopupMenuItem(
                           value: 'delete',
-                          child: Text(memo.isDeleted ? '🗑 永久删除' : '🗑 删除'),
+                          child: _MemoMenuLabel(
+                            Icons.delete_outline,
+                            memo.isDeleted ? '永久删除' : '删除',
+                            color: Colors.red,
+                          ),
                         ),
                       ],
                     ),
@@ -381,4 +388,21 @@ class MemoItem extends StatelessWidget {
       ), // Card
     );
   }
+}
+
+class _MemoMenuLabel extends StatelessWidget {
+  const _MemoMenuLabel(this.icon, this.label, {this.color});
+
+  final IconData icon;
+  final String label;
+  final Color? color;
+
+  @override
+  Widget build(BuildContext context) => Row(
+    children: [
+      Icon(icon, size: 20, color: color),
+      const SizedBox(width: 12),
+      Text(label, style: color == null ? null : TextStyle(color: color)),
+    ],
+  );
 }

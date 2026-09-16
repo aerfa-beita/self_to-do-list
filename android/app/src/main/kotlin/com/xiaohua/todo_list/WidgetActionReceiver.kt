@@ -10,11 +10,12 @@ class WidgetActionReceiver : BroadcastReceiver() {
         val store = WidgetTaskStore(context)
         val widgetId = intent.getIntExtra(WidgetContract.EXTRA_WIDGET_ID, -1)
         val taskId = intent.getLongExtra(WidgetContract.EXTRA_TASK_ID, -1L)
+        val kind = intent.getStringExtra(WidgetContract.EXTRA_KIND) ?: WidgetContract.KIND_NOW
         val success = when (intent.action) {
-            WidgetContract.ACTION_TOGGLE_TASK -> taskId >= 0 && store.toggleTask(taskId)
+            WidgetContract.ACTION_TOGGLE_TASK -> taskId >= 0 && store.toggleTask(taskId, kind)
             WidgetContract.ACTION_TOGGLE_SUBTASK -> {
                 val subTaskId = intent.getLongExtra(WidgetContract.EXTRA_SUBTASK_ID, -1L)
-                subTaskId >= 0 && store.toggleSubTask(subTaskId)
+                subTaskId >= 0 && store.toggleSubTask(subTaskId, kind)
             }
             WidgetContract.ACTION_TOGGLE_EXPANDED -> {
                 if (widgetId < 0 || taskId < 0) {

@@ -107,10 +107,8 @@ class Task {
     return actionScopeInbox;
   }
 
-  String get inferredActionScope => inferActionScope(
-    taskMode: taskMode,
-    dueDate: dueDate,
-  );
+  String get inferredActionScope =>
+      inferActionScope(taskMode: taskMode, dueDate: dueDate);
 
   /// 只看日期不看时间：今天不算过期
   bool get isOverdue {

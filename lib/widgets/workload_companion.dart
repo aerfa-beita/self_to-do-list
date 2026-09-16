@@ -15,7 +15,6 @@ class WorkloadCompanion extends StatefulWidget {
     required this.current,
     required this.limit,
     required this.onTap,
-    this.stashedCount = 0,
     this.compact = false,
     this.reminderActive = false,
     this.edgePeek = false,
@@ -27,7 +26,6 @@ class WorkloadCompanion extends StatefulWidget {
   final int current;
   final int limit;
   final VoidCallback onTap;
-  final int stashedCount;
   final bool compact;
   final bool reminderActive;
   final bool edgePeek;

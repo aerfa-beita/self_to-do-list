@@ -49,7 +49,7 @@ class WidgetTaskStore(private val context: Context) {
     fun nowTasks(expandedTaskId: Long?): List<WidgetTask> =
         queryTasks(
             "t.deleted_at IS NULL AND t.completed_at IS NULL " +
-                "AND t.companion_stashed_at IS NULL AND t.task_mode IN (?, ?)",
+                "AND t.task_mode IN (?, ?)",
             arrayOf("plan_now", "flow"),
             expandedTaskId,
         )
@@ -60,7 +60,7 @@ class WidgetTaskStore(private val context: Context) {
         val end = start.plusDays(7)
         return queryTasks(
             "t.deleted_at IS NULL AND t.completed_at IS NULL " +
-                "AND t.companion_stashed_at IS NULL AND substr(t.due_date, 1, 10) >= ? " +
+                "AND substr(t.due_date, 1, 10) >= ? " +
                 "AND substr(t.due_date, 1, 10) < ?",
             arrayOf(start.toString(), end.toString()),
             expandedTaskId,

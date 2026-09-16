@@ -101,7 +101,7 @@ class DatabaseProvider {
     await _backupBeforeScopeMigration(path);
     final db = await openDatabase(
       path,
-      version: 22,
+      version: 23,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -124,6 +124,7 @@ class DatabaseProvider {
     final backupPath = switch (version) {
       20 => '$path.pre-v21',
       21 => '$path.pre-v22',
+      22 => '$path.pre-v23',
       _ => null,
     };
     if (backupPath == null) return;
@@ -430,6 +431,14 @@ class DatabaseProvider {
         SET deleted_scope = $inferredScope
         WHERE deleted_at IS NOT NULL
           AND (deleted_scope IS NULL OR deleted_scope = '')
+      ''');
+    }
+    if (oldVersion < 23) {
+      await _ensureColumn(db, 'tasks', 'companion_stashed_at', 'TEXT');
+      await db.execute('''
+        UPDATE tasks
+        SET companion_stashed_at = NULL
+        WHERE companion_stashed_at IS NOT NULL
       ''');
     }
     if (oldVersion < 16) {

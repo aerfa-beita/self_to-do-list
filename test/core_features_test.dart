@@ -85,7 +85,7 @@ void main() {
       addTearDown(db.close);
 
       final version = await db.getVersion();
-      expect(version, 22);
+      expect(version, 23);
       final taskColumns = await db.rawQuery("PRAGMA table_info('tasks')");
       final memoColumns = await db.rawQuery("PRAGMA table_info('memos')");
       expect(
@@ -262,7 +262,7 @@ void main() {
 
     final migrated = await DatabaseProvider().openAtPath(path);
     addTearDown(migrated.close);
-    expect(await migrated.getVersion(), 22);
+    expect(await migrated.getVersion(), 23);
     expect((await migrated.query('tasks')).single['title'], '原有普通任务');
     expect(
       (await migrated.query('tasks')).single['task_mode'],
@@ -318,7 +318,7 @@ void main() {
 
     final migrated = await DatabaseProvider().openAtPath(path);
     addTearDown(migrated.close);
-    expect(await migrated.getVersion(), 22);
+    expect(await migrated.getVersion(), 23);
     expect(await File(backupPath).exists(), isTrue);
     final row = (await migrated.query('tasks')).single;
     expect(row['title'], '迁移前任务');
@@ -389,13 +389,87 @@ void main() {
 
     final migrated = await DatabaseProvider().openAtPath(path);
     addTearDown(migrated.close);
-    expect(await migrated.getVersion(), 22);
+    expect(await migrated.getVersion(), 23);
     expect(await File(backupPath).exists(), isTrue);
     final rows = await migrated.query('tasks', orderBy: 'id ASC');
     expect(rows[0]['completed_scope'], Task.actionScopeStage);
     expect(rows[1]['deleted_scope'], Task.actionScopeWeek);
     expect(rows[2]['completed_scope'], Task.actionScopeInbox);
   });
+
+  test(
+    'version 22 migration backs up and releases companion stashed tasks',
+    () async {
+      sqfliteFfiInit();
+      databaseFactory = databaseFactoryFfi;
+      final path = p.join(
+        Directory.systemTemp.path,
+        'todo_list_v22_${DateTime.now().microsecondsSinceEpoch}.db',
+      );
+      final backupPath = '$path.pre-v23';
+      addTearDown(() async {
+        for (final candidate in [path, backupPath]) {
+          final file = File(candidate);
+          if (await file.exists()) await file.delete();
+        }
+      });
+      final legacy = await databaseFactory.openDatabase(
+        path,
+        options: OpenDatabaseOptions(
+          version: 22,
+          onCreate: (db, _) async {
+            await db.execute('''
+            CREATE TABLE tasks(
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              title TEXT NOT NULL,
+              created_at TEXT NOT NULL,
+              sort_order INTEGER NOT NULL DEFAULT 0,
+              task_mode TEXT NOT NULL DEFAULT 'normal',
+              due_date TEXT,
+              companion_stashed_at TEXT
+            )
+          ''');
+            await db.execute(
+              'CREATE TABLE subtasks(id INTEGER PRIMARY KEY AUTOINCREMENT, task_id INTEGER NOT NULL, parent_id INTEGER, sort_order INTEGER NOT NULL DEFAULT 0)',
+            );
+            await db.execute(
+              'CREATE TABLE memos(id INTEGER PRIMARY KEY AUTOINCREMENT, parent_id INTEGER, created_at TEXT NOT NULL, sort_order INTEGER NOT NULL DEFAULT 0)',
+            );
+          },
+        ),
+      );
+      final stamp = DateTime(2026, 9, 16).toIso8601String();
+      await legacy.insert('tasks', {
+        'title': '回到收件箱',
+        'created_at': stamp,
+        'companion_stashed_at': stamp,
+      });
+      await legacy.insert('tasks', {
+        'title': '保留阶段',
+        'created_at': stamp,
+        'task_mode': Task.planNextMode,
+        'companion_stashed_at': stamp,
+      });
+      await legacy.insert('tasks', {
+        'title': '保留日期',
+        'created_at': stamp,
+        'due_date': stamp,
+        'companion_stashed_at': stamp,
+      });
+      await legacy.close();
+
+      final migrated = await DatabaseProvider().openAtPath(path);
+      addTearDown(migrated.close);
+      expect(await migrated.getVersion(), 23);
+      expect(await File(backupPath).exists(), isTrue);
+      final rows = await migrated.query('tasks', orderBy: 'id ASC');
+      expect(rows.every((row) => row['companion_stashed_at'] == null), isTrue);
+      expect(rows[0]['task_mode'], Task.normalMode);
+      expect(rows[0]['due_date'], isNull);
+      expect(rows[1]['task_mode'], Task.planNextMode);
+      expect(rows[2]['due_date'], stamp);
+    },
+  );
 
   test('version 17 data migrates without changing categories or records', () async {
     sqfliteFfiInit();
@@ -459,7 +533,7 @@ void main() {
 
     final migrated = await DatabaseProvider().openAtPath(path);
     addTearDown(migrated.close);
-    expect(await migrated.getVersion(), 22);
+    expect(await migrated.getVersion(), 23);
     expect((await migrated.query('tasks')).single['title'], '保留的旧任务');
     expect((await migrated.query('memos')).single['content'], '保留的旧备忘录');
     expect((await migrated.query('categories')).single['name'], '工作');
@@ -746,7 +820,7 @@ void main() {
 
       final migrated = await DatabaseProvider().openAtPath(copyPath);
       addTearDown(migrated.close);
-      expect(await migrated.getVersion(), 22);
+      expect(await migrated.getVersion(), 23);
       for (final table in tables) {
         expect(
           (await migrated.rawQuery(

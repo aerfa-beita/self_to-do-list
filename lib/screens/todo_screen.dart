@@ -73,9 +73,6 @@ class TodoScreenState extends State<TodoScreen> with WidgetsBindingObserver {
   int _dailyEffortLimit = 8;
   Task? _selectedTask;
   final _companionKey = GlobalKey<WorkloadCompanionState>();
-  Timer? _companionEventTimer;
-  String? _companionEventTask;
-  int _companionEventSequence = 0;
   Offset _companionPosition = const Offset(1, .18);
   bool _reminderWarningShown = false;
   TodoDisplayMode _displayMode = TodoDisplayMode.arrangement;
@@ -142,7 +139,6 @@ class TodoScreenState extends State<TodoScreen> with WidgetsBindingObserver {
                     'arranged',
                     'completed',
                     'deleted',
-                    'stash',
                   }.contains(smart)
                   ? smart
                   : 'inbox'
@@ -219,7 +215,6 @@ class TodoScreenState extends State<TodoScreen> with WidgetsBindingObserver {
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    _companionEventTimer?.cancel();
     _quickInputController.dispose();
     _quickInputFocus.dispose();
     _searchController.dispose();
@@ -246,7 +241,6 @@ class TodoScreenState extends State<TodoScreen> with WidgetsBindingObserver {
       dueDate: schedule.dueDate,
       reminderTime: schedule.reminderTime,
       repeatType: schedule.repeatType,
-      companionStashedAt: _smartView == 'stash' ? DateTime.now() : null,
     );
     final approved = await _applyWorkloadGuard(draft);
     if (approved == null) return;
@@ -258,7 +252,6 @@ class TodoScreenState extends State<TodoScreen> with WidgetsBindingObserver {
       _quickInputFocus.requestFocus();
     }
     await _loadAll();
-    if (savedTask.companionStashedAt != null) _showStashedTask(savedTask);
   }
 
   Future<void> _loadAll() async {
@@ -755,7 +748,6 @@ class TodoScreenState extends State<TodoScreen> with WidgetsBindingObserver {
         reminderTime: schedule.reminderTime,
         repeatType: schedule.repeatType,
         effortPoints: int.tryParse(result['effort_points'] ?? '') ?? 2,
-        companionStashedAt: _smartView == 'stash' ? DateTime.now() : null,
         taskMode:
             taskMode ??
             (_displayMode == TodoDisplayMode.arrangement
@@ -772,7 +764,6 @@ class TodoScreenState extends State<TodoScreen> with WidgetsBindingObserver {
       );
       await _scheduleReminder(savedTask);
       await _loadAll();
-      if (savedTask.companionStashedAt != null) _showStashedTask(savedTask);
     }
   }
 
@@ -864,8 +855,7 @@ class TodoScreenState extends State<TodoScreen> with WidgetsBindingObserver {
         clearRepeatType: result['repeat_type'] == null,
         effortPoints:
             int.tryParse(result['effort_points'] ?? '') ?? task.effortPoints,
-        clearCompanionStashedAt:
-            task.companionStashedAt != null && result['due_date'] != null,
+        clearCompanionStashedAt: task.companionStashedAt != null,
       );
       await widget.taskService.updateTask(updated);
       await _scheduleReminder(updated);
@@ -904,18 +894,9 @@ class TodoScreenState extends State<TodoScreen> with WidgetsBindingObserver {
   List<Task> _filterTasks(List<Task> tasks) {
     var result = tasks;
     if (_smartView == 'inbox') {
-      result = result
-          .where((task) => task.companionStashedAt == null && !task.isScheduled)
-          .toList();
+      result = result.where((task) => !task.isScheduled).toList();
     } else if (_smartView == 'arranged') {
-      result = result
-          .where((task) => task.companionStashedAt == null && task.isScheduled)
-          .toList();
-    } else if (_smartView == 'stash') {
-      result = result.where((task) => task.companionStashedAt != null).toList()
-        ..sort(
-          (a, b) => b.companionStashedAt!.compareTo(a.companionStashedAt!),
-        );
+      result = result.where((task) => task.isScheduled).toList();
     }
     return _applyCategoryAndSearch(result);
   }
@@ -1073,9 +1054,12 @@ class TodoScreenState extends State<TodoScreen> with WidgetsBindingObserver {
       ({T value, IconData icon, String label, String? subtitle, bool selected})
     >
     options,
-  }) {
+  }) async {
+    // Let the first-level popup finish closing before opening its child menu.
+    await Future<void>.delayed(const Duration(milliseconds: 220));
+    if (!mounted) return null;
     if (Platform.isAndroid) {
-      return showModalBottomSheet<T>(
+      return await showModalBottomSheet<T>(
         context: context,
         useSafeArea: true,
         builder: (sheetContext) => Column(
@@ -1104,8 +1088,14 @@ class TodoScreenState extends State<TodoScreen> with WidgetsBindingObserver {
     }
     final overlay = Overlay.of(context).context.findRenderObject() as RenderBox;
     final anchor = anchorContext?.findRenderObject() as RenderBox?;
-    final rect = anchor == null
-        ? Rect.fromLTWH(overlay.size.width - 280, 64, 48, 48)
+    final fallbackRect = Rect.fromLTWH(
+      math.max(8, overlay.size.width - 280),
+      64,
+      48,
+      48,
+    );
+    final candidateRect = anchor == null || !anchor.attached || !anchor.hasSize
+        ? fallbackRect
         : Rect.fromPoints(
             anchor.localToGlobal(Offset.zero, ancestor: overlay),
             anchor.localToGlobal(
@@ -1113,7 +1103,15 @@ class TodoScreenState extends State<TodoScreen> with WidgetsBindingObserver {
               ancestor: overlay,
             ),
           );
-    return showMenu<T>(
+    final rect =
+        candidateRect.left >= 0 &&
+            candidateRect.top >= 0 &&
+            candidateRect.right <= overlay.size.width &&
+            candidateRect.bottom <= overlay.size.height &&
+            candidateRect.width <= overlay.size.width / 2
+        ? candidateRect
+        : fallbackRect;
+    return await showMenu<T>(
       context: context,
       position: RelativeRect.fromRect(rect, Offset.zero & overlay.size),
       items: [
@@ -1333,8 +1331,8 @@ class TodoScreenState extends State<TodoScreen> with WidgetsBindingObserver {
         content: Text(
           dueToday
               ? '当前 $_todayEffort/$_dailyEffortLimit，加入后为 '
-                    '${_todayEffort + task.effortPoints}/$_dailyEffortLimit。继续创建时，小精灵会先把任务放进精灵窝。'
-              : '今天已经达到 $_todayEffort/$_dailyEffortLimit。继续创建时，小精灵会先把这条新任务放进精灵窝。',
+                    '${_todayEffort + task.effortPoints}/$_dailyEffortLimit。可改到明天，或仍然创建。'
+              : '今天已经达到 $_todayEffort/$_dailyEffortLimit。可改到明天，或仍然创建。',
         ),
         actions: [
           TextButton(
@@ -1346,19 +1344,13 @@ class TodoScreenState extends State<TodoScreen> with WidgetsBindingObserver {
             child: const Text('改到明天'),
           ),
           FilledButton(
-            onPressed: () => Navigator.pop(context, 'stash'),
-            child: const Text('交给小精灵'),
+            onPressed: () => Navigator.pop(context, 'continue'),
+            child: const Text('仍然创建'),
           ),
         ],
       ),
     );
-    if (choice == 'stash') {
-      return task.copyWith(
-        companionStashedAt: DateTime.now(),
-        clearDueDate: true,
-        clearReminderTime: true,
-      );
-    }
+    if (choice == 'continue') return task;
     if (choice == 'tomorrow') {
       final tomorrow = DateTime.now().add(const Duration(days: 1));
       return task.copyWith(
@@ -1366,51 +1358,6 @@ class TodoScreenState extends State<TodoScreen> with WidgetsBindingObserver {
       );
     }
     return null;
-  }
-
-  void _showStashedTask(Task task) {
-    _playCompanionEvent(task.title);
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(
-          content: Text('小精灵把「${task.title}」放进了精灵窝'),
-          duration: const Duration(seconds: 8),
-          showCloseIcon: true,
-          action: SnackBarAction(
-            label: '安排到明天',
-            onPressed: () async {
-              final tomorrow = DateTime.now().add(const Duration(days: 1));
-              await widget.taskService.updateTask(
-                task.copyWith(
-                  dueDate: DateTime(
-                    tomorrow.year,
-                    tomorrow.month,
-                    tomorrow.day,
-                  ),
-                  clearCompanionStashedAt: true,
-                ),
-              );
-              await _loadAll();
-            },
-          ),
-        ),
-      );
-  }
-
-  void _playCompanionEvent(String taskTitle) {
-    _companionEventTimer?.cancel();
-    setState(() {
-      _companionEventTask = taskTitle;
-      _companionEventSequence++;
-    });
-    WidgetsBinding.instance.addPostFrameCallback(
-      (_) => _companionKey.currentState?.startJourney(),
-    );
-    _companionEventTimer = Timer(const Duration(milliseconds: 3200), () {
-      if (!mounted) return;
-      setState(() => _companionEventTask = null);
-    });
   }
 
   Future<void> _batchComplete() async {
@@ -1664,18 +1611,10 @@ class TodoScreenState extends State<TodoScreen> with WidgetsBindingObserver {
                 label: value.round().toString(),
                 onChanged: (next) => setDialogState(() => value = next),
               ),
-              const Text('超出上限后可交给小花精灵暂存，不会删除任务。'),
+              const Text('超出上限时会提示改到明天，也可以仍然创建。'),
             ],
           ),
           actions: [
-            TextButton.icon(
-              onPressed: () {
-                Navigator.pop(dialogContext);
-                _playCompanionEvent('演示任务');
-              },
-              icon: const Icon(Icons.play_arrow_rounded),
-              label: const Text('预览动作'),
-            ),
             TextButton(
               onPressed: () => Navigator.pop(dialogContext),
               child: const Text('取消'),
@@ -1838,7 +1777,6 @@ class TodoScreenState extends State<TodoScreen> with WidgetsBindingObserver {
       'arranged' => '已安排',
       'completed' => '已完成',
       'deleted' => '最近删除',
-      'stash' => '精灵窝',
       _ => '收件箱',
     };
   }
@@ -1852,20 +1790,12 @@ class TodoScreenState extends State<TodoScreen> with WidgetsBindingObserver {
 
   Widget _buildSmartViews(BuildContext context, {VoidCallback? onChanged}) {
     final colors = Theme.of(context).colorScheme;
-    final stashCount = _activeUndone
-        .where((task) => task.companionStashedAt != null)
-        .length;
     final views = primaryPage == TodoPrimaryPage.inbox
         ? [
             (key: 'inbox', label: '收件箱', icon: Icons.inbox_outlined),
             (key: 'arranged', label: '已安排', icon: Icons.event_note_outlined),
             (key: 'completed', label: '已完成', icon: Icons.check_circle_outline),
             (key: 'deleted', label: '最近删除', icon: Icons.delete_outline),
-            (
-              key: 'stash',
-              label: stashCount == 0 ? '精灵窝' : '精灵窝 $stashCount',
-              icon: Icons.spa_outlined,
-            ),
           ]
         : [
             (key: 'active', label: '未完成', icon: Icons.pending_actions),
@@ -2051,9 +1981,6 @@ class TodoScreenState extends State<TodoScreen> with WidgetsBindingObserver {
                           current: _todayEffort,
                           limit: _dailyEffortLimit,
                           reminderActive: _hasUpcomingReminder,
-                          stashedCount: _activeUndone
-                              .where((task) => task.companionStashedAt != null)
-                              .length,
                           onTap: _showEffortLimitDialog,
                         ),
                       ],
@@ -2268,7 +2195,7 @@ class TodoScreenState extends State<TodoScreen> with WidgetsBindingObserver {
     final isCompact = viewport.width < 900;
     final filteredUndone =
         _displayMode == TodoDisplayMode.list &&
-            const {'inbox', 'arranged', 'stash'}.contains(_smartView)
+            const {'inbox', 'arranged'}.contains(_smartView)
         ? _filterTasks(_activeUndone)
         : const <Task>[];
     final filteredDone = _smartView == 'completed'
@@ -2277,11 +2204,8 @@ class TodoScreenState extends State<TodoScreen> with WidgetsBindingObserver {
                 .where((task) => task.completedScope == _currentActionScope)
                 .toList(),
           )..sort(
-            (a, b) => _compareTaskEventNewestFirst(
-              a,
-              b,
-              (task) => task.completedAt,
-            ),
+            (a, b) =>
+                _compareTaskEventNewestFirst(a, b, (task) => task.completedAt),
           ))
         : const <Task>[];
     final filteredDeleted = _smartView == 'deleted'
@@ -2290,11 +2214,8 @@ class TodoScreenState extends State<TodoScreen> with WidgetsBindingObserver {
                 .where((task) => task.deletedScope == _currentActionScope)
                 .toList(),
           )..sort(
-            (a, b) => _compareTaskEventNewestFirst(
-              a,
-              b,
-              (task) => task.deletedAt,
-            ),
+            (a, b) =>
+                _compareTaskEventNewestFirst(a, b, (task) => task.deletedAt),
           ))
         : const <Task>[];
     final showArrangementBoard =
@@ -2753,27 +2674,7 @@ class TodoScreenState extends State<TodoScreen> with WidgetsBindingObserver {
                 onDragUpdate: (delta) => _moveCompanion(delta, viewport),
                 onDragEnd: _snapAndSaveCompanion,
                 reminderActive: _hasUpcomingReminder,
-                stashedCount: _activeUndone
-                    .where((task) => task.companionStashedAt != null)
-                    .length,
                 onTap: _showEffortLimitDialog,
-              ),
-            ),
-          if (_companionEventTask != null)
-            Positioned.fill(
-              child: IgnorePointer(
-                child: CompanionTaskEvent(
-                  key: ValueKey(_companionEventSequence),
-                  taskTitle: _companionEventTask!,
-                  ratio: _dailyEffortLimit <= 0
-                      ? 0
-                      : _todayEffort / _dailyEffortLimit,
-                  rightInset:
-                      _selectedTask != null &&
-                          MediaQuery.sizeOf(context).width >= 900
-                      ? 340
-                      : 0,
-                ),
               ),
             ),
         ],

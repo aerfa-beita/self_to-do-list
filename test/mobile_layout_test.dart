@@ -25,6 +25,14 @@ import 'package:todo_list/widgets/workload_companion.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
+  test('legacy root tab values migrate to semantic arrange or memo pages', () {
+    expect(resolveAndroidRootPage('memo', '1'), 'memo');
+    expect(resolveAndroidRootPage('arrange', '0'), 'arrange');
+    expect(resolveAndroidRootPage(null, '0'), 'memo');
+    expect(resolveAndroidRootPage(null, '1'), 'arrange');
+    expect(resolveAndroidRootPage(null, null), 'arrange');
+  });
+
   Future<void> waitForNativeDatabase(WidgetTester tester) async {
     await tester.runAsync(
       () => Future<void>.delayed(const Duration(milliseconds: 200)),
@@ -212,19 +220,22 @@ void main() {
     );
     await waitForNativeDatabase(tester);
     expect(find.byType(NavigationBar), findsOneWidget);
-    expect(find.text('备忘录'), findsWidgets);
-    expect(find.text('安排'), findsOneWidget);
-
-    await tester.tap(find.text('安排'));
-    await tester.pump(const Duration(milliseconds: 400));
-    await waitForNativeDatabase(tester);
+    final navigation = tester.widget<NavigationBar>(find.byType(NavigationBar));
+    expect((navigation.destinations[0] as NavigationDestination).label, '安排');
+    expect((navigation.destinations[1] as NavigationDestination).label, '备忘录');
     expect(find.byKey(const Key('todo-primary-navigation')), findsOneWidget);
     expect(find.text('本周'), findsOneWidget);
     expect(find.text('阶段'), findsOneWidget);
-    expect(find.text('收件箱'), findsOneWidget);
+    expect(find.text('收件箱'), findsWidgets);
     expect(find.byKey(const Key('todo-display-mode')), findsNothing);
     expect(find.text('Todo List'), findsNothing);
     expect(tester.takeException(), isNull);
+
+    await tester.tap(find.text('备忘录'));
+    await tester.pump(const Duration(milliseconds: 400));
+    await waitForNativeDatabase(tester);
+    expect(find.byKey(const Key('todo-primary-navigation')), findsNothing);
+    expect(find.text('全部备忘'), findsOneWidget);
 
     await tester.pumpWidget(const SizedBox.shrink());
     await waitForNativeDatabase(tester);

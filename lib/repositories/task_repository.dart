@@ -299,7 +299,6 @@ class TaskRepository {
     final selfOrder = (self['sort_order'] as num?)?.toInt() ?? 0;
     final selfMode = Task.normalizeMode(self['task_mode'] as String?);
     final selfCompleted = self['completed_at'] != null;
-    final selfStashed = self['companion_stashed_at'] != null;
     final candidates = rows.where((row) {
       if (row['id'] == taskId) return false;
       if ((row['category'] as String?) != (self['category'] as String?)) {
@@ -309,7 +308,6 @@ class TaskRepository {
       if (Task.normalizeMode(row['task_mode'] as String?) != selfMode) {
         return false;
       }
-      if ((row['companion_stashed_at'] != null) != selfStashed) return false;
       final order = (row['sort_order'] as num?)?.toInt() ?? 0;
       return moveUp ? order < selfOrder : order > selfOrder;
     }).toList();
@@ -385,7 +383,6 @@ class TaskRepository {
       FROM tasks
       WHERE deleted_at IS NULL
         AND completed_at IS NULL
-        AND companion_stashed_at IS NULL
         AND due_date >= ?
         AND due_date < ?
     ''',

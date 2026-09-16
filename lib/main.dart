@@ -29,7 +29,12 @@ import 'screens/memo_screen.dart';
 final todoScreenKey = GlobalKey<TodoScreenState>();
 final memoScreenKey = GlobalKey<MemoScreenState>();
 final themeModeNotifier = ValueNotifier<ThemeMode>(ThemeMode.system);
-final currentTabIndex = ValueNotifier<int>(0); // 0=备忘录, 1=安排
+final currentTabIndex = ValueNotifier<int>(0); // 0=安排, 1=备忘录
+
+String resolveAndroidRootPage(String? savedPage, String? legacyTab) {
+  if (savedPage == 'arrange' || savedPage == 'memo') return savedPage!;
+  return legacyTab == '0' ? 'memo' : 'arrange';
+}
 
 void toggleTheme() {
   final newMode = themeModeNotifier.value == ThemeMode.dark
@@ -192,16 +197,16 @@ class TodoApp extends StatelessWidget {
           NewTaskIntent: CallbackAction<NewTaskIntent>(
             onInvoke: (_) {
               if (currentTabIndex.value == 0) {
-                memoScreenKey.currentState?.showAddDialog();
-              } else {
                 todoScreenKey.currentState?.showAddDialog();
+              } else {
+                memoScreenKey.currentState?.showAddDialog();
               }
               return null;
             },
           ),
           NewSubIntent: CallbackAction<NewSubIntent>(
             onInvoke: (_) {
-              if (currentTabIndex.value == 1) {
+              if (currentTabIndex.value == 0) {
                 todoScreenKey.currentState?.addSubTaskToLastExpanded();
               }
               return null;
@@ -210,9 +215,9 @@ class TodoApp extends StatelessWidget {
           FocusInputIntent: CallbackAction<FocusInputIntent>(
             onInvoke: (_) {
               if (currentTabIndex.value == 0) {
-                memoScreenKey.currentState?.focusInput();
-              } else {
                 todoScreenKey.currentState?.focusInput();
+              } else {
+                memoScreenKey.currentState?.focusInput();
               }
               return null;
             },
@@ -292,15 +297,15 @@ class _MainScreenState extends State<MainScreen>
       if (Platform.isAndroid) {
         unawaited(
           DatabaseProvider().setSetting(
-            'android_last_root_tab',
-            _tabController.index.toString(),
+            'android_last_root_page',
+            _tabController.index == 0 ? 'arrange' : 'memo',
           ),
         );
       }
       if (_tabController.index == 0) {
-        unawaited(memoScreenKey.currentState?.refresh());
-      } else {
         unawaited(todoScreenKey.currentState?.refresh());
+      } else {
+        unawaited(memoScreenKey.currentState?.refresh());
       }
     });
     widget.notificationService.pendingNotification.addListener(_showPending);
@@ -309,8 +314,14 @@ class _MainScreenState extends State<MainScreen>
   }
 
   Future<void> _restoreRootTab() async {
-    final saved = await DatabaseProvider().getSetting('android_last_root_tab');
-    if (!mounted || saved != '1') return;
+    final database = DatabaseProvider();
+    var saved = await database.getSetting('android_last_root_page');
+    if (saved != 'arrange' && saved != 'memo') {
+      final legacy = await database.getSetting('android_last_root_tab');
+      saved = resolveAndroidRootPage(saved, legacy);
+      await database.setSetting('android_last_root_page', saved);
+    }
+    if (!mounted || saved != 'memo') return;
     _tabController.animateTo(1);
   }
 
@@ -645,7 +656,7 @@ class _MainScreenState extends State<MainScreen>
 
   @override
   Widget build(BuildContext context) {
-    final isMemo = _tabController.index == 0;
+    final isMemo = _tabController.index == 1;
     final isCompact = MediaQuery.sizeOf(context).width < 900;
     return Scaffold(
       appBar: AppBar(
@@ -769,17 +780,6 @@ class _MainScreenState extends State<MainScreen>
           final content = TabBarView(
             controller: _tabController,
             children: [
-              MemoScreen(
-                key: memoScreenKey,
-                memoService: widget.memoService,
-                taskMemoService: widget.taskMemoService,
-                taskService: widget.taskService,
-                notificationService: widget.notificationService,
-                onSectionChanged: (title) {
-                  if (_memoSectionTitle == title) return;
-                  setState(() => _memoSectionTitle = title);
-                },
-              ),
               TodoScreen(
                 key: todoScreenKey,
                 taskService: widget.taskService,
@@ -795,6 +795,17 @@ class _MainScreenState extends State<MainScreen>
                     _todoPrimaryPage = page;
                     _todoArrangementMode = page != TodoPrimaryPage.inbox;
                   });
+                },
+              ),
+              MemoScreen(
+                key: memoScreenKey,
+                memoService: widget.memoService,
+                taskMemoService: widget.taskMemoService,
+                taskService: widget.taskService,
+                notificationService: widget.notificationService,
+                onSectionChanged: (title) {
+                  if (_memoSectionTitle == title) return;
+                  setState(() => _memoSectionTitle = title);
                 },
               ),
             ],
@@ -816,14 +827,14 @@ class _MainScreenState extends State<MainScreen>
                 ),
                 destinations: const [
                   NavigationRailDestination(
-                    icon: Icon(Icons.note_alt_outlined),
-                    selectedIcon: Icon(Icons.note_alt_rounded),
-                    label: Text('备忘录'),
-                  ),
-                  NavigationRailDestination(
                     icon: Icon(Icons.checklist_outlined),
                     selectedIcon: Icon(Icons.checklist_rounded),
                     label: Text('安排'),
+                  ),
+                  NavigationRailDestination(
+                    icon: Icon(Icons.note_alt_outlined),
+                    selectedIcon: Icon(Icons.note_alt_rounded),
+                    label: Text('备忘录'),
                   ),
                 ],
               ),
@@ -842,14 +853,14 @@ class _MainScreenState extends State<MainScreen>
               onDestinationSelected: _tabController.animateTo,
               destinations: const [
                 NavigationDestination(
-                  icon: Icon(Icons.note_alt_outlined),
-                  selectedIcon: Icon(Icons.note_alt_rounded),
-                  label: '备忘录',
-                ),
-                NavigationDestination(
                   icon: Icon(Icons.checklist_outlined),
                   selectedIcon: Icon(Icons.checklist_rounded),
                   label: '安排',
+                ),
+                NavigationDestination(
+                  icon: Icon(Icons.note_alt_outlined),
+                  selectedIcon: Icon(Icons.note_alt_rounded),
+                  label: '备忘录',
                 ),
               ],
             )

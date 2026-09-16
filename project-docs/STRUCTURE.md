@@ -29,7 +29,7 @@ MY_Project/to-do_list/
 ├── project-docs/                     # 索引/结构/统计 🆕
 ├── lib/
 │   ├── main.dart                     # 入口 + DI + Todo/备忘录自适应导航
-│   ├── database/database.dart        # DB v22 + 升级前备份 + 稳定Windows路径/迁移 + 同步队列
+│   ├── database/database.dart        # DB v23 + 升级前备份 + 稳定Windows路径/迁移 + 同步队列
 │   ├── models/  (3个: task/sub_task/memo)  # 同步元数据/状态来源/心力/置顶归档
 │   ├── repositories/  (6个)
 │   │   └── task_memo_repository.dart # Todo/备忘录关联
@@ -69,7 +69,7 @@ MY_Project/to-do_list/
 │       └── sync_id.dart
 ├── supabase/schema.sql               # 云表/RLS/Realtime
 ├── test/
-│   ├── core_features_test.dart       # DB v22/升级前备份/来源迁移/JSON合并/关联/解析
+│   ├── core_features_test.dart       # DB v23/升级前备份/精灵窝退场/来源迁移/JSON合并/关联/解析
 │   ├── flow_screen_test.dart          # 安排模式三列/共用已完成捷径/行菜单/空态
 │   ├── todo_arrangement_test.dart     # 来源状态隔离/历史事件排序/本周历史/菜单与恢复
 │   ├── deleted_task_card_test.dart    # 最近删除 320/360/412dp 与危险菜单边界
@@ -102,10 +102,11 @@ v14 → v15 (subtasks.deleted_at) → v16 (repeat_type) → v17 (settings 表)
 → v20 (tasks.task_mode，Todo 列表/安排互转与三段分组)
 → v21 (tasks.week_sort_order，本周同日排序独立于列表/阶段排序)
 → v22 (tasks.completed_scope / deleted_scope，按操作来源显示归档与恢复)
+→ v23 (停用精灵窝，迁移时清空 companion_stashed_at 并保留阶段/日期)
 
-打开现有 v20 文件库前会创建同目录 `.pre-v21` 备份；打开 v21 文件库前创建 `.pre-v22` 备份。v22 旧任务按阶段优先、其次日期、最后收件箱推断状态来源。
+打开现有 v20 文件库前会创建同目录 `.pre-v21` 备份；打开 v21 文件库前创建 `.pre-v22` 备份；打开 v22 文件库前创建 `.pre-v23` 备份。v22 旧任务按阶段优先、其次日期、最后收件箱推断状态来源；v23 释放旧精灵窝任务但不改阶段和日期。
 
-`settings` 保存 Android 页面位置与安排折叠状态；这些设备本地偏好不进入云同步。
+`settings` 保存 Android 语义根页面 `arrange/memo`、Todo 子页面与安排折叠状态；这些设备本地偏好不进入云同步。
 
 本周继续按 `due_date` 派生；阶段继续按 `task_mode` 派生。移动只更新同一任务对应属性，不复制任务；完成和删除全局生效，由来源字段决定归档入口。
 

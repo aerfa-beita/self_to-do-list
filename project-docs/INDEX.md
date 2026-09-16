@@ -19,6 +19,15 @@ Flutter 桌面端（Windows + Android）备忘录 + Todo List 应用，Material 
 | [STRUCTURE.md](STRUCTURE.md) | 目录结构、文件关系、架构图 |
 | [CODE_STATS.md](CODE_STATS.md) | 代码统计 |
 
+## [2026-09-16 精灵窝退场与安排优先导航](../docs/2026-09-16-精灵窝退场与安排优先导航.md)
+
+| 检查 | 结果 |
+|------|------|
+| DB v23 | v22 打开前创建 `.pre-v23`，清空暂存标记但保留阶段和日期 |
+| 主导航 | 安排｜备忘录，默认本周；旧数字记忆迁移到 `arrange/memo` |
+| 精灵窝 | 移除入口、自动暂存和任务隐藏；兼容字段暂留同步协议 |
+| 验证 | Flutter 70/70；静态分析无编译错误，17 条既有提示 |
+
 ## [2026-09-16 最近删除专用卡片](../docs/2026-09-16-最近删除专用卡片.md)
 
 | 检查 | 结果 |
@@ -58,7 +67,7 @@ Flutter 桌面端（Windows + Android）备忘录 + Todo List 应用，Material 
 
 | 功能 | 状态 |
 |------|------|
-| 手机底部“备忘录 / 安排”，安排顶部单层“本周 / 阶段 / 收件箱” | ✅ |
+| 当时手机底部“备忘录 / 安排” | ⏩ 9/16 已调整为“安排 / 备忘录” |
 | 收件箱五视图、阶段/本周三视图严格互斥；已安排仅管理 | ✅ |
 | 完成/删除全局生效，按 inbox/stage/week 来源归档与恢复 | ✅ |
 | 收件箱长按排序、明确选择按钮、两级移动菜单与统一线性图标 | ✅ |
@@ -75,7 +84,7 @@ Flutter 桌面端（Windows + Android）备忘录 + Todo List 应用，Material 
 | 本周固定周一至周日；今天仅未完成，过去日期同时显示完成与未完成 | ✅ |
 | 长按同日排序；“调整日期”跨天拖动并同步提醒；本周顺序使用 `week_sort_order` | ✅ |
 | 阶段长按组内排序；三点跨阶段并增加同步今日；本周三点增加同步阶段 | ✅ |
-| 智能视图按收件箱/已完成/最近删除/精灵窝排列，收件箱只保留待办 | ✅ |
+| 当时包含精灵窝智能视图 | ⏩ 9/16 DB v23 已移除精灵窝 |
 | 列表取消滑动完成；最近删除显示删除日期并确认永久删除 | ✅ |
 | Android 恢复上次根页面、列表/安排及智能视图/阶段/本周 | ✅ |
 | DB v20→v21 升级前文件备份；同步、JSON 导入和原生小部件适配 | ✅ 迁移测试通过 |
@@ -352,7 +361,7 @@ UI → Service → Repository → DatabaseProvider → SQLite（单向依赖，�
 
 | 表 | 说明 |
 |----|------|
-| tasks / subtasks | Todo任务与子任务（5级嵌套、安排分组、软删除、重复提醒、精灵暂存） |
+| tasks / subtasks | Todo任务与子任务（5级嵌套、安排分组、软删除、重复提醒；保留旧精灵暂存兼容字段） |
 | memos | 备忘录（5级嵌套、分类、重复提醒） |
 | categories / memo_categories | 分类管理 |
 | settings | 键值存储（深色模式、今日负荷上限、小精灵位置、Android 页面恢复） |
@@ -360,7 +369,7 @@ UI → Service → Repository → DatabaseProvider → SQLite（单向依赖，�
 | sync_outbox / sync_state | 待同步队列、游标和登录会话 |
 | sync_conflicts | 双端并发修改快照 |
 
-当前 DB 版本：v22
+当前 DB 版本：v23
 
 ---
 
@@ -377,9 +386,10 @@ UI → Service → Repository → DatabaseProvider → SQLite（单向依赖，�
 
 ## 下次待办
 
-1. 在普通 PowerShell/Android Studio 构建 v22 Android Release，并核对 APK 更新时间
-2. 侧装 v22 包，验收安排单层导航、来源归档恢复、两级移动菜单、长按排序、页面恢复与两个桌面小部件
-3. Windows/Android 同一邮箱验收阶段、日期、完成来源和删除来源同步
-4. 外部会话重新设计小精灵动作素材，确认后再集成
-5. 决定是否从旧数据库备份恢复已删除内容
-6. 子任务 hover 边框 bug
+1. 确认安排页方案 A/B，更新 `DESIGN.md` 后实现视觉改版
+2. 在普通 PowerShell/Android Studio 构建 v23 Android Release，并核对 APK 更新时间
+3. 侧装 v23 包，验收旧精灵窝任务释放、安排优先导航、来源归档恢复、两级移动菜单、页面恢复与两个桌面小部件
+4. Windows/Android 同一邮箱验收阶段、日期、完成来源和删除来源同步
+5. 实现 Supabase 主源 + GitHub Releases 备用源的应用内更新
+6. 决定是否从旧数据库备份恢复已删除内容
+7. 子任务 hover 边框 bug

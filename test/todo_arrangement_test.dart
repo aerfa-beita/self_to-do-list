@@ -453,7 +453,8 @@ void main() {
     expect(find.text('移到阶段'), findsOneWidget);
     expect(find.text('移到本周'), findsOneWidget);
     await tester.tap(find.text('移到阶段'));
-    await tester.pump(const Duration(milliseconds: 300));
+    await tester.pump(const Duration(milliseconds: 550));
+    await tester.pump(const Duration(milliseconds: 350));
     await tester.tap(find.text('稍后'));
     await tester.runAsync(
       () => Future<void>.delayed(const Duration(milliseconds: 300)),

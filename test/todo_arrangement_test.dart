@@ -315,6 +315,63 @@ void main() {
     expect(find.text('阶段最近删除'), findsNothing);
   });
 
+  testWidgets(
+    'week board shows only week-scoped completions from past dates',
+    (tester) async {
+      final now = DateTime.now();
+      final today = DateTime(now.year, now.month, now.day);
+      final pastDay = today.subtract(const Duration(days: 1));
+      final db = (await tester.runAsync(() async {
+        final database = await makeDb();
+        final repository = TaskRepository(database);
+        await repository.insert(
+          Task(title: '过去未完成', dueDate: pastDay),
+        );
+        await repository.insert(
+          Task(
+            title: '过去本周完成',
+            dueDate: pastDay,
+            completedAt: pastDay.add(const Duration(hours: 20)),
+            completedScope: Task.actionScopeWeek,
+          ),
+        );
+        await repository.insert(
+          Task(
+            title: '过去阶段完成',
+            dueDate: pastDay,
+            taskMode: Task.planNowMode,
+            completedAt: pastDay.add(const Duration(hours: 21)),
+            completedScope: Task.actionScopeStage,
+          ),
+        );
+        await repository.insert(
+          Task(
+            title: '今天本周完成',
+            dueDate: today,
+            completedAt: today.add(const Duration(hours: 8)),
+            completedScope: Task.actionScopeWeek,
+          ),
+        );
+        return database;
+      }))!;
+      addTearDown(() => tester.runAsync(db.close));
+
+      await pumpScreen(tester, db);
+      screenKey!.currentState!.setPrimaryPage(TodoPrimaryPage.week);
+      await tester.pump();
+      if (today.weekday == DateTime.monday) {
+        await tester.tap(find.byKey(const Key('week-previous')));
+        await tester.pump();
+      }
+
+      await settle(tester, find.text('过去本周完成'));
+      expect(find.text('过去未完成'), findsOneWidget);
+      expect(find.text('过去本周完成'), findsOneWidget);
+      expect(find.text('过去阶段完成'), findsNothing);
+      expect(find.text('今天本周完成'), findsNothing);
+    },
+  );
+
   testWidgets('context menu moves a normal task to later stage and detail '
       'shows read-only stage chip', (tester) async {
     final db = (await tester.runAsync(() async {

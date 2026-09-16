@@ -1,6 +1,6 @@
 ﻿# todo_list — 项目规则与进度
 
-> 最后更新：2026-09-15 · DB v22 · 路径 `D:\MY_Project\to-do_list`
+> 最后更新：2026-09-16 · DB v22 · 路径 `D:\MY_Project\to-do_list`
 > 技术栈/架构/环境详见 `project-docs/INDEX.md` + `STRUCTURE.md`
 
 ---
@@ -9,11 +9,11 @@
 
 | 项目 | 内容 |
 |------|------|
-| **日期** | 2026-09-15 |
-| **做了什么** | Android 改为“备忘录 / 安排”底部导航，安排顶部收敛为“本周 / 阶段 / 收件箱”。收件箱加入已安排，三类页面各自显示来源已完成/最近删除；已安排只管理不完成/删除。长按负责排序，多选改为明确按钮，任务与备忘录三点菜单统一图标和顺序。DB 升至 v22，新增 `completed_scope`、`deleted_scope`，同步、JSON、恢复规则和 Android 小部件一并适配。 |
-| **下一步** | Flutter 完整测试 61/61、静态分析和 Windows Release 已通过。Android 普通终端发现的小部件删除 `kind` 未传参已修复；Codex 重试被既有回环故障拦截，需小花先生在原普通终端重跑 Release，再侧装真机验收。 |
+| **日期** | 2026-09-16 |
+| **做了什么** | 建立 `963e0b3` 安排优先检查点；修复本周数据接线，过去日期现在能显示本周来源的完成记录，今天仍隐藏已完成，阶段/收件箱完成不会混入。 |
+| **下一步** | 在普通 PowerShell 补跑 `flutter test --concurrency=1`；随后按批次处理完成/删除时间排序、最近删除专用卡片、安排页视觉改版和应用内更新。 |
 | **踩坑** | Android 原生小部件新增来源参数时，必须沿 Intent → Activity → Store 的整条调用链传递；Flutter 测试不会编译 Kotlin，不能替代 Android Release 构建。 |
-| **已知问题** | Codex Windows 子进程内 Android Release 仍报 `Unable to establish loopback connection`；`kind` 源码错误已修复但需普通终端确认 Kotlin 编译。本批尚未生成 v22 APK，当前也无 Android 设备或 AVD。静态分析保留同步网关既有 2 条 warning；列表逐条读取子任务进度仍是性能后续项。 |
+| **已知问题** | Codex 环境中 Flutter/Dart 命令本轮在启动阶段无输出，完整测试待普通终端补跑；Android Release 仍有既有回环故障，`kind` 修复需普通终端确认 Kotlin 编译。当前无 Android 设备或 AVD。 |
 | **自我改进** | 跨视图任务应把业务属性、视图排序、状态来源分开建模；手势只承担一个主要动作，长按排序后多选必须使用可见入口；发布验收必须核对产物时间和实际设备。 |
 
 ---
@@ -41,6 +41,7 @@
 
 | 批次 | 内容 |
 |------|------|
+| 9/16 | 修复本周历史完成任务数据接线与来源隔离；见 `docs/2026-09-16-本周历史完成任务显示修复.md` |
 | 9/15 | Android 小部件删除操作补齐 `kind` 参数链，修复 `compileReleaseKotlin` 的 unresolved reference；见 `docs/2026-09-15-Android小部件删除作用域编译修复.md` |
 | 9/15 | Android“安排优先”整体改版、DB v22、来源归档与恢复、单层导航、已安排管理页及统一图标菜单；见 `docs/2026-09-15-Android安排优先整体改版.md` |
 | 9/15 | Gradle 回环报错定因：Codex Windows 子进程的 JBR NIO/AF_UNIX 环境异常；普通终端构建成功，APK 结构与 v2 签名有效；见 `docs/2026-09-15-Gradle回环连接诊断.md` |

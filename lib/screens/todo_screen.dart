@@ -2404,7 +2404,14 @@ class TodoScreenState extends State<TodoScreen> with WidgetsBindingObserver {
                               onDeleteTask: _confirmDeleteArranged,
                               onAddTask: (mode) => showQuickAdd(taskMode: mode),
                               allUndoneTasks: _activeUndone,
-                              allTasks: _activeUndone,
+                              allTasks: [
+                                ..._activeUndone,
+                                ..._activeDone.where(
+                                  (task) =>
+                                      task.completedScope ==
+                                      Task.actionScopeWeek,
+                                ),
+                              ],
                               onAddWeeklyTask: (date) =>
                                   showQuickAdd(dueDate: date),
                               onReorder: _reorderArrangement,

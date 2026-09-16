@@ -15,6 +15,7 @@ import '../services/task_memo_service.dart';
 import '../utils/date_utils.dart';
 import '../widgets/todo_item.dart';
 import '../widgets/add_todo_dialog.dart';
+import '../widgets/deleted_task_card.dart';
 import '../widgets/schedule_prompt_dialog.dart';
 import '../widgets/workload_companion.dart';
 import 'flow_screen.dart';
@@ -2612,16 +2613,8 @@ class TodoScreenState extends State<TodoScreen> with WidgetsBindingObserver {
                                   ),
                                   if (_showDeleted)
                                     ...filteredDeleted.map((task) {
-                                      final p =
-                                          _progress[task.id!] ??
-                                          (total: 0, done: 0);
-                                      return TaskItem(
+                                      return DeletedTaskCard(
                                         task: task,
-                                        doneCount: p.done,
-                                        totalCount: p.total,
-                                        onTap: () {},
-                                        onDelete: () {},
-                                        onEdit: () {},
                                         onRestore: () => _restore(task),
                                         onPermanentDelete: () =>
                                             _permDelete(task),

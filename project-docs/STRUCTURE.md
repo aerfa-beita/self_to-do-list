@@ -55,6 +55,7 @@ MY_Project/to-do_list/
 │   │   ├── task_detail_screen.dart   # 子任务主详情 + 顶部编辑 + 闹钟/重复选择器
 │   │   └── memo_screen.dart          # 当前分类标题 + 弹窗创建 + 批量选择 + 搜索
 │   ├── widgets/
+│   │   ├── deleted_task_card.dart    # 最近删除专用响应式卡片 + 恢复/永久删除入口
 │   │   ├── memo_detail_panel.dart    # 自适应备忘录详情/自动保存
 │   │   ├── workload_companion.dart   # 五状态/48dp边缘探头/随机互动/双手搬任务
 │   │   ├── rigged_companion.dart     # 分层组装/步态/抓握/锚点任务卡
@@ -71,6 +72,7 @@ MY_Project/to-do_list/
 │   ├── core_features_test.dart       # DB v22/升级前备份/来源迁移/JSON合并/关联/解析
 │   ├── flow_screen_test.dart          # 安排模式三列/共用已完成捷径/行菜单/空态
 │   ├── todo_arrangement_test.dart     # 来源状态隔离/历史事件排序/本周历史/菜单与恢复
+│   ├── deleted_task_card_test.dart    # 最近删除 320/360/412dp 与危险菜单边界
 │   ├── sync_engine_test.dart         # 多批次上传/关系修复/旧云任务来源推断
 │   ├── sync_gateway_encoding_test.dart # 中文 payload 推送 utf8 编码回归（本地 HTTP）🆕
 │   ├── sync_config_test.dart         # 本地公共配置回退

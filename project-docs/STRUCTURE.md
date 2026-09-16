@@ -142,3 +142,4 @@ Realtime 只触发增量同步；应用启动、回前台、编辑防抖、5 分
 - 出现该固定堆栈时不改项目、不清缓存、不重置网络；改用普通 PowerShell/Android Studio 构建，Codex 校验 APK 结构与签名。
 - Release 只使用被 Git 忽略的 `android/app/todo-release.jks` 与 `android/key.properties`；缺少任一配置即中止，不允许回退到调试签名。
 - 更新 APK 与 `update-manifest.json` 由 `scripts/publish_android_release.ps1` 发布到 GitHub Releases；客户端还会核对当前安装证书，清单不能替代签名信任。
+- `MainActivity.signerDigests()` 必须兼容可空的 Android 平台签名数组；已安装包或更新 APK 的签名集合为空时必须拒绝安装。

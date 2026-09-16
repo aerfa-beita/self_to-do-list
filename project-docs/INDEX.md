@@ -19,6 +19,15 @@ Flutter 桌面端（Windows + Android）备忘录 + Todo List 应用，Material 
 | [STRUCTURE.md](STRUCTURE.md) | 目录结构、文件关系、架构图 |
 | [CODE_STATS.md](CODE_STATS.md) | 代码统计 |
 
+## [2026-09-16 Android 签名校验空安全编译修复](../docs/2026-09-16-Android签名校验空安全编译修复.md)
+
+| 检查 | 结果 |
+|------|------|
+| 编译错误 | `PackageInfo.signatures` 可空数组直接调用 `map` |
+| 修复 | 安全读取签名；任一签名集合为空或不一致均拒绝安装 |
+| Codex 构建 | 既有 JBR 回环连接故障在 Kotlin 编译前拦截 |
+| 待验收 | 普通 PowerShell / Android Studio 重新构建正式 APK |
+
 ## [2026-09-16 子任务详情页统一改版](../docs/2026-09-16-子任务详情页统一改版.md)
 
 | 检查 | 结果 |

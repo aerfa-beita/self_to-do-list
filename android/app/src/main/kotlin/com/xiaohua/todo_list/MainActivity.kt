@@ -160,7 +160,12 @@ class MainActivity : FlutterActivity() {
                 return mapOf("valid" to false, "reason" to "安装包版本名称与清单不匹配")
             }
             val installed = packageInfoWithSigners(packageName)
-            if (signerDigests(installed) != signerDigests(archive)) {
+            val installedSigners = signerDigests(installed)
+            val archiveSigners = signerDigests(archive)
+            if (installedSigners.isEmpty() ||
+                archiveSigners.isEmpty() ||
+                installedSigners != archiveSigners
+            ) {
                 return mapOf("valid" to false, "reason" to "安装包签名与当前应用不一致")
             }
             return mapOf("valid" to true)
@@ -239,11 +244,11 @@ class MainActivity : FlutterActivity() {
             @Suppress("DEPRECATION")
             info.signatures
         }
-        return signatures.map { signature ->
+        return signatures?.map { signature ->
             MessageDigest.getInstance("SHA-256")
                 .digest(signature.toByteArray())
                 .joinToString("") { byte -> "%02x".format(byte) }
-        }.toSet()
+        }?.toSet() ?: emptySet()
     }
 
     private fun versionCode(info: PackageInfo): Long =

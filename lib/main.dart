@@ -18,6 +18,7 @@ import 'services/memo_service.dart';
 import 'services/task_memo_service.dart';
 import 'services/notification_service.dart';
 import 'services/backup_file_service.dart';
+import 'services/app_update_service.dart';
 import 'sync/supabase_sync_gateway.dart';
 import 'sync/sync_config.dart';
 import 'sync/sync_coordinator.dart';
@@ -25,6 +26,7 @@ import 'sync/sync_engine.dart';
 import 'sync/sync_status.dart';
 import 'screens/todo_screen.dart';
 import 'screens/memo_screen.dart';
+import 'widgets/app_update_dialog.dart';
 
 final todoScreenKey = GlobalKey<TodoScreenState>();
 final memoScreenKey = GlobalKey<MemoScreenState>();
@@ -284,12 +286,16 @@ class _MainScreenState extends State<MainScreen>
   String _memoSectionTitle = '全部备忘';
   late final BackupFileService _backupFileService;
   DateTime? _lastRenderedSyncAt;
+  late final AppUpdateService _appUpdateService;
+  bool _updateCheckInFlight = false;
+  bool _updateDialogShowing = false;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
     _backupFileService = BackupFileService(DatabaseProvider());
+    _appUpdateService = AppUpdateService();
     _tabController.addListener(() {
       setState(() {});
       currentTabIndex.value = _tabController.index;
@@ -310,7 +316,69 @@ class _MainScreenState extends State<MainScreen>
     });
     widget.notificationService.pendingNotification.addListener(_showPending);
     widget.syncCoordinator.status.addListener(_refreshAfterCloudSync);
-    if (Platform.isAndroid) unawaited(_restoreRootTab());
+    if (Platform.isAndroid) {
+      unawaited(_restoreRootTab());
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        unawaited(_checkForAppUpdate(silent: true));
+      });
+    }
+  }
+
+  Future<void> _checkForAppUpdate({required bool silent}) async {
+    if (!Platform.isAndroid || _updateCheckInFlight || _updateDialogShowing) {
+      return;
+    }
+    final database = DatabaseProvider();
+    if (silent) {
+      final saved = int.tryParse(
+        await database.getSetting('android_last_update_check') ?? '',
+      );
+      if (saved != null &&
+          DateTime.now().difference(
+                DateTime.fromMillisecondsSinceEpoch(saved),
+              ) <
+              const Duration(hours: 24)) {
+        return;
+      }
+    }
+    _updateCheckInFlight = true;
+    if (!silent && mounted) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('正在检查更新…')));
+    }
+    try {
+      await database.setSetting(
+        'android_last_update_check',
+        DateTime.now().millisecondsSinceEpoch.toString(),
+      );
+      final update = await _appUpdateService.checkForUpdate();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      if (update == null) {
+        if (!silent) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text('已是最新版本')));
+        }
+        return;
+      }
+      _updateDialogShowing = true;
+      await showAppUpdateDialog(
+        context: context,
+        service: _appUpdateService,
+        update: update,
+      );
+    } catch (error) {
+      if (!mounted || silent) return;
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('检查更新失败：$error')));
+    } finally {
+      _updateCheckInFlight = false;
+      _updateDialogShowing = false;
+    }
   }
 
   Future<void> _restoreRootTab() async {
@@ -737,6 +805,8 @@ class _MainScreenState extends State<MainScreen>
                 await _exportBackup();
               } else if (v == 'import') {
                 await _importBackup();
+              } else if (v == 'update') {
+                await _checkForAppUpdate(silent: false);
               }
             },
             itemBuilder: (_) => [
@@ -759,6 +829,18 @@ class _MainScreenState extends State<MainScreen>
                 ),
               ),
               const PopupMenuDivider(),
+              if (Platform.isAndroid)
+                const PopupMenuItem(
+                  value: 'update',
+                  child: Row(
+                    children: [
+                      Icon(Icons.system_update_alt_outlined, size: 20),
+                      SizedBox(width: 12),
+                      Text('检查更新'),
+                    ],
+                  ),
+                ),
+              if (Platform.isAndroid) const PopupMenuDivider(),
               const PopupMenuItem(
                 value: 'export',
                 child: Row(

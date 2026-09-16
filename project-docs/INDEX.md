@@ -19,6 +19,16 @@ Flutter 桌面端（Windows + Android）备忘录 + Todo List 应用，Material 
 | [STRUCTURE.md](STRUCTURE.md) | 目录结构、文件关系、架构图 |
 | [CODE_STATS.md](CODE_STATS.md) | 代码统计 |
 
+## [2026-09-16 Android 应用内更新与正式签名](../docs/2026-09-16-Android应用内更新与正式签名.md)
+
+| 检查 | 结果 |
+|------|------|
+| 更新来源 | GitHub Releases APK + `update-manifest.json` |
+| 安全校验 | HTTPS、跳转域名、大小、SHA-256、包名、版本、签名证书 |
+| 安装流程 | 24 小时检查 / 手动检查 → 下载进度 → 未知来源授权 → 系统确认 |
+| 正式签名 | 本地密钥已建立并忽略；Release 缺密钥时拒绝构建 |
+| 验证 | Flutter 76/76；Windows Release 成功；Android 被既有回环故障拦截 |
+
 ## [2026-09-16 安排页 B 方案紧凑工作区](../docs/2026-09-16-安排页B方案紧凑工作区.md)
 
 | 检查 | 结果 |

@@ -14,6 +14,8 @@ MY_Project/to-do_list/
 ├── DESIGN.md                         # 当前项目视觉与交互事实
 ├── pubspec.yaml
 ├── .gitignore
+├── scripts/
+│   └── publish_android_release.ps1  # 构建/摘要/GitHub Release/版本清单发布
 ├── assets/
 │   ├── config/                       # Supabase 示例 + 本地忽略配置
 │   ├── fonts/msyh.ttc
@@ -36,6 +38,7 @@ MY_Project/to-do_list/
 │   ├── repositories/  (6个)
 │   │   └── task_memo_repository.dart # Todo/备忘录关联
 │   ├── services/
+│   │   ├── app_update_service.dart  # GitHub 清单、下载、SHA-256 与原生安装桥
 │   │   ├── android_widget_service.dart # Flutter → Android 小部件刷新桥
 │   │   ├── task_service.dart          # CRUD、列表/阶段/本周独立排序、安排折叠设置
 │   │   ├── memo_service.dart
@@ -57,6 +60,7 @@ MY_Project/to-do_list/
 │   │   ├── task_detail_screen.dart   # 子任务主详情 + 顶部编辑 + 闹钟/重复选择器
 │   │   └── memo_screen.dart          # 当前分类标题 + 弹窗创建 + 批量选择 + 搜索
 │   ├── widgets/
+│   │   ├── app_update_dialog.dart   # 版本说明、进度、取消、重试与安装引导
 │   │   ├── deleted_task_card.dart    # 最近删除专用响应式卡片 + 恢复/永久删除入口
 │   │   ├── memo_detail_panel.dart    # 自适应备忘录详情/自动保存
 │   │   ├── workload_companion.dart   # 五状态/48dp边缘探头/随机互动/双手搬任务
@@ -72,6 +76,8 @@ MY_Project/to-do_list/
 ├── supabase/schema.sql               # 云表/RLS/Realtime
 ├── test/
 │   ├── core_features_test.dart       # DB v23/升级前备份/精灵窝退场/来源迁移/JSON合并/关联/解析
+│   ├── app_update_service_test.dart  # 清单格式、可信地址、强制版本与大小显示
+│   ├── app_update_dialog_test.dart   # Android 更新弹窗 320dp 边界
 │   ├── flow_screen_test.dart          # 安排模式三列/共用已完成捷径/行菜单/空态
 │   ├── todo_arrangement_test.dart     # 来源状态隔离/历史事件排序/本周历史/菜单与恢复
 │   ├── deleted_task_card_test.dart    # 最近删除 320/360/412dp 与危险菜单边界
@@ -91,9 +97,10 @@ MY_Project/to-do_list/
     └── app/src/main/
         ├── kotlin/com/xiaohua/todo_list/
         │   ├── TaskWidgetProvider.kt / TaskWidgetService.kt
+        │   ├── MainActivity.kt        # 备份/电池/小部件 + APK 身份校验与系统安装
         │   ├── WidgetTaskStore.kt / WidgetActionReceiver.kt
         │   └── WidgetQuickTaskActivity.kt / WidgetContract.kt # Intent kind 贯穿小部件操作
-        └── res/                      # 小部件布局、兼容勾选图标、颜色与 provider 配置
+        └── res/                      # 小部件资源 + 更新 APK FileProvider 路径
 ```
 
 ## DB 版本历史
@@ -131,3 +138,5 @@ Realtime 只触发增量同步；应用启动、回前台、编辑防抖、5 分
 - Flutter 通过 `D:\EXE_Download\android\jbr` 使用 JBR 21.0.10，Gradle Wrapper 使用本地 `D:\EXE_Download\gradle-9.1.0-all.zip`。
 - Codex Windows 子进程环境可能让 JBR 的 NIO Selector 在 AF_UNIX 内部管道处报 `Unable to establish loopback connection`；普通 PowerShell 同命令可成功。
 - 出现该固定堆栈时不改项目、不清缓存、不重置网络；改用普通 PowerShell/Android Studio 构建，Codex 校验 APK 结构与签名。
+- Release 只使用被 Git 忽略的 `android/app/todo-release.jks` 与 `android/key.properties`；缺少任一配置即中止，不允许回退到调试签名。
+- 更新 APK 与 `update-manifest.json` 由 `scripts/publish_android_release.ps1` 发布到 GitHub Releases；客户端还会核对当前安装证书，清单不能替代签名信任。

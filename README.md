@@ -59,6 +59,7 @@ Flutter 桌面效率工具 · Material 3 · SQLite 本地存储 · Windows + And
 - 手机 Todo 列表与备忘录通过右下角按钮按需创建；Todo 安排页仅保留分组内添加入口
 - Windows / Android SQLite 本地优先同步（Supabase 增量同步，可选 Realtime）
 - 标签分类保持原有结构；不启用 Markdown 编辑器
+- Android 支持 GitHub Releases 应用内更新：24 小时自动检查、手动检查、下载进度、完整性/包名/版本/签名校验和系统安装确认
 
 ## 🚀 运行
 
@@ -75,6 +76,8 @@ flutter build windows                    # exe 在 build/windows/x64/runner/Rele
 flutter build apk --release              # apk 在 build/app/outputs/flutter-apk/
 ```
 
+Android Release 必须使用本地正式签名配置 `android/key.properties`；项目不再回退到调试签名。公开更新通过 `scripts/publish_android_release.ps1` 上传到 GitHub Releases，Token、密钥和密码均不得提交。
+
 ## ☁️ 启用双端同步
 
 先在 Supabase SQL Editor 执行 `supabase/schema.sql`。当前工作区会自动读取被 Git 忽略的 `assets/config/supabase.json`，普通构建即可启用同步：
@@ -90,7 +93,7 @@ flutter build apk --release
 
 Flutter 3.44 / Dart 3.12 · SQLite (sqflite + ffi) · Material 3 · Windows schtasks + toast · Android zonedSchedule
 
-当前应用版本：1.2.2+5 · 数据库版本：v23
+当前应用版本：1.3.0+6 · 数据库版本：v23
 
 ## 📄 文档体系
 

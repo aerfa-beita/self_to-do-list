@@ -2,13 +2,18 @@ package com.xiaohua.todo_list
 
 import android.app.Activity
 import android.content.Intent
+import android.content.pm.PackageInfo
+import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.os.PowerManager
 import android.provider.Settings
+import androidx.core.content.FileProvider
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
+import java.io.File
+import java.security.MessageDigest
 
 class MainActivity : FlutterActivity() {
     companion object {
@@ -98,7 +103,156 @@ class MainActivity : FlutterActivity() {
                     else -> result.notImplemented()
                 }
             }
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "todo_list/app_update")
+            .setMethodCallHandler { call, result ->
+                when (call.method) {
+                    "getInstalledVersion" -> {
+                        val info = packageManager.getPackageInfo(packageName, 0)
+                        result.success(
+                            mapOf(
+                                "versionName" to (info.versionName ?: ""),
+                                "versionCode" to versionCode(info),
+                            )
+                        )
+                    }
+                    "getUpdateCachePath" -> {
+                        val updateDir = File(cacheDir, "updates").apply { mkdirs() }
+                        result.success(File(updateDir, "app-update.apk").absolutePath)
+                    }
+                    "verifyApk" -> {
+                        val path = call.argument<String>("path")
+                        val expectedCode = call.argument<Number>("versionCode")?.toLong()
+                        val expectedName = call.argument<String>("versionName")
+                        Thread {
+                            val verification = verifyApk(path, expectedCode, expectedName)
+                            runOnUiThread { result.success(verification) }
+                        }.start()
+                    }
+                    "installApk" -> {
+                        val path = call.argument<String>("path")
+                        result.success(installApk(path))
+                    }
+                    else -> result.notImplemented()
+                }
+            }
     }
+
+    private fun verifyApk(
+        path: String?,
+        expectedVersionCode: Long?,
+        expectedVersionName: String?,
+    ): Map<String, Any> {
+        try {
+            val apk = trustedUpdateFile(path)
+                ?: return mapOf("valid" to false, "reason" to "安装包路径无效")
+            if (!apk.isFile || apk.length() <= 0L) {
+                return mapOf("valid" to false, "reason" to "安装包不存在")
+            }
+            val archive = packageInfoForArchive(apk)
+                ?: return mapOf("valid" to false, "reason" to "无法读取安装包信息")
+            if (archive.packageName != packageName) {
+                return mapOf("valid" to false, "reason" to "安装包应用标识不匹配")
+            }
+            if (expectedVersionCode == null || versionCode(archive) != expectedVersionCode) {
+                return mapOf("valid" to false, "reason" to "安装包版本号与清单不匹配")
+            }
+            if (expectedVersionName.isNullOrBlank() || archive.versionName != expectedVersionName) {
+                return mapOf("valid" to false, "reason" to "安装包版本名称与清单不匹配")
+            }
+            val installed = packageInfoWithSigners(packageName)
+            if (signerDigests(installed) != signerDigests(archive)) {
+                return mapOf("valid" to false, "reason" to "安装包签名与当前应用不一致")
+            }
+            return mapOf("valid" to true)
+        } catch (error: Exception) {
+            return mapOf("valid" to false, "reason" to (error.message ?: "安装包校验失败"))
+        }
+    }
+
+    private fun installApk(path: String?): String {
+        return try {
+            val apk = trustedUpdateFile(path) ?: return "unsupported"
+            if (!apk.isFile) return "unsupported"
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O &&
+                !packageManager.canRequestPackageInstalls()
+            ) {
+                startActivity(
+                    Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES).apply {
+                        data = Uri.parse("package:$packageName")
+                    }
+                )
+                return "permission_required"
+            }
+            val contentUri = FileProvider.getUriForFile(
+                this,
+                "$packageName.update-files",
+                apk,
+            )
+            startActivity(
+                Intent(Intent.ACTION_VIEW).apply {
+                    setDataAndType(contentUri, "application/vnd.android.package-archive")
+                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
+            )
+            "started"
+        } catch (_: Exception) {
+            "unsupported"
+        }
+    }
+
+    private fun trustedUpdateFile(path: String?): File? {
+        if (path.isNullOrBlank()) return null
+        val updateDir = File(cacheDir, "updates").canonicalFile
+        val candidate = File(path).canonicalFile
+        if (candidate.parentFile != updateDir) return null
+        return candidate
+    }
+
+    private fun packageInfoForArchive(apk: File): PackageInfo? {
+        val flags = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            PackageManager.GET_SIGNING_CERTIFICATES
+        } else {
+            @Suppress("DEPRECATION")
+            PackageManager.GET_SIGNATURES
+        }
+        @Suppress("DEPRECATION")
+        return packageManager.getPackageArchiveInfo(apk.absolutePath, flags)
+    }
+
+    private fun packageInfoWithSigners(packageId: String): PackageInfo {
+        val flags = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            PackageManager.GET_SIGNING_CERTIFICATES
+        } else {
+            @Suppress("DEPRECATION")
+            PackageManager.GET_SIGNATURES
+        }
+        @Suppress("DEPRECATION")
+        return packageManager.getPackageInfo(packageId, flags)
+    }
+
+    private fun signerDigests(info: PackageInfo): Set<String> {
+        val signatures = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            val signingInfo = info.signingInfo ?: return emptySet()
+            signingInfo.apkContentsSigners
+        } else {
+            @Suppress("DEPRECATION")
+            info.signatures
+        }
+        return signatures.map { signature ->
+            MessageDigest.getInstance("SHA-256")
+                .digest(signature.toByteArray())
+                .joinToString("") { byte -> "%02x".format(byte) }
+        }.toSet()
+    }
+
+    private fun versionCode(info: PackageInfo): Long =
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            info.longVersionCode
+        } else {
+            @Suppress("DEPRECATION")
+            info.versionCode.toLong()
+        }
 
     @Deprecated("Deprecated in Android API")
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {

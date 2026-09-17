@@ -1,6 +1,7 @@
 package com.xiaohua.todo_list
 
 import android.app.Activity
+import android.app.NotificationManager
 import android.content.Intent
 import android.content.pm.PackageInfo
 import android.content.pm.PackageManager
@@ -99,6 +100,20 @@ class MainActivity : FlutterActivity() {
                     "refresh" -> {
                         TaskWidgetProvider.updateAll(this)
                         result.success(true)
+                    }
+                    else -> result.notImplemented()
+                }
+            }
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "stride/full_screen_intent")
+            .setMethodCallHandler { call, result ->
+                when (call.method) {
+                    "canUse" -> {
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                            val manager = getSystemService(NotificationManager::class.java)
+                            result.success(manager.canUseFullScreenIntent())
+                        } else {
+                            result.success(true)
+                        }
                     }
                     else -> result.notImplemented()
                 }

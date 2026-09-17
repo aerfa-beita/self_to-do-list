@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">todo_list</string>
+    <string name="app_name">Stride</string>
     <string name="now_widget_name">现在</string>
     <string name="week_widget_name">本周</string>
     <string name="now_widget_description">在桌面查看并快捷处理“现在”任务</string>

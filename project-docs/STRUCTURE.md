@@ -32,6 +32,7 @@ MY_Project/to-do_list/
 │       ├── 本周今日优先*.png            # 9/17 本周今日锚点确认稿与实际组件验收图
 │       ├── 子任务详情页统一方案.svg/.png # 9/16 已确认的子任务方向稿
 │       ├── App图标-A6六序镜花*.svg/.png # Android 图标普通/圆形设计母版
+│       ├── 全屏提醒方案-*.png            # 设置/任务到点/今日巡检三张确认方向稿
 │       └── mascot_2_5d/              # 最终组装/编号/动作验收图
 ├── project-docs/                     # 索引/结构/统计 🆕
 ├── lib/
@@ -49,7 +50,9 @@ MY_Project/to-do_list/
 │   │   ├── backup_file_service.dart  # Windows/Android JSON文件读写
 │   │   ├── companion_dialogue_service.dart # 小精灵本地语料/冷却/去重
 │   │   ├── companion_rig_service.dart # 2.5D rig 解析/缓存/锚点
-│   │   └── notification_service.dart # 通知队列 + schtasks + repeat 🆕
+│   │   ├── reminder_settings_service.dart # 今日巡检开关/间隔/活跃时段本地设置
+│   │   ├── reminder_coordinator.dart  # 任务变化后重排提醒 + 持久化稍后提醒校验
+│   │   └── notification_service.dart # 普通通知 + Android 铃声全屏提醒 + Windows schtasks
 │   ├── sync/
 │   │   ├── sync_config.dart
 │   │   ├── sync_gateway.dart
@@ -61,6 +64,8 @@ MY_Project/to-do_list/
 │   │   ├── todo_screen.dart          # 来源状态视图 + 历史事件倒序 + 页面记忆与批量操作
 │   │   ├── flow_screen.dart          # 紧凑摘要 + 固定七天本周/今日锚点 + 周导航/日期状态卡片/拖动菜单
 │   │   ├── task_detail_screen.dart   # 子任务进度卡/长按排序/层级菜单 + 顶部编辑
+│   │   ├── full_screen_reminder_screen.dart # 任务到点/今日巡检两种全屏状态
+│   │   ├── reminder_settings_screen.dart # 全屏权限、巡检开关、间隔与活跃时段
 │   │   └── memo_screen.dart          # 当前分类标题 + 弹窗创建 + 批量选择 + 搜索
 │   ├── widgets/
 │   │   ├── app_update_dialog.dart   # 非强制版本说明、稍后、进度、取消、重试与安装引导
@@ -92,19 +97,20 @@ MY_Project/to-do_list/
 │   ├── arrangement_collapse_sort_test.dart # 固定七天、今日首屏锚点、历史完成、排序、收起和 320dp 边界
 │   ├── stage_week_visual_test.dart   # 390×844 B 方案阶段/本周真实组件视觉回归
 │   ├── task_detail_screen_test.dart  # 子任务菜单、390dp 视觉与 320dp 放大字体边界
-│   ├── goldens/                      # 阶段/本周/子任务详情手机端视觉基准 PNG
+│   ├── reminder_feature_test.dart    # payload、巡检规则及三种 390×844 视觉状态
+│   ├── goldens/                      # 阶段/本周/子任务详情/全屏提醒手机端视觉基准 PNG
 │   ├── workload_companion_test.dart  # 五状态/探头/本地对话/跨屏吞任务
 │   ├── companion_rig_test.dart       # 三方向/15部件/独立方向资源
 │   └── schedule_prompt_dialog_test.dart # 时间向导今天/跳过流程
-├── windows/                          # Windows runner (C++)
+├── windows/                          # Windows runner (C++) + 六序镜花 app_icon.ico
 └── android/                          # Android (Kotlin)
     └── app/src/main/
         ├── kotlin/com/xiaohua/todo_list/
         │   ├── TaskWidgetProvider.kt / TaskWidgetService.kt
-        │   ├── MainActivity.kt        # 备份/电池/小部件 + APK 身份校验与系统安装
+        │   ├── MainActivity.kt        # 备份/电池/小部件/全屏权限 + APK 身份校验与系统安装
         │   ├── WidgetTaskStore.kt / WidgetActionReceiver.kt
         │   └── WidgetQuickTaskActivity.kt / WidgetContract.kt # Intent kind 贯穿小部件操作
-        └── res/                      # A6 自适应/单色/五档图标 + 小部件 + 更新 APK 路径
+        └── res/                      # A6 图标 + 小部件 + 更新路径 + raw/stride_reminder.wav
 ```
 
 ## DB 版本历史

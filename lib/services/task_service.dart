@@ -108,6 +108,8 @@ class TaskService {
 
   Future<List<Task>> getDeletedTasks() => _taskRepo.getDeleted();
 
+  Future<Task?> getTaskById(int taskId) => _taskRepo.getById(taskId);
+
   Future<void> setTaskMode(Task task, String mode) async {
     final normalized = Task.normalizeMode(mode);
     final nextOrder = await _taskRepo.getNextSortOrderForMode(normalized);

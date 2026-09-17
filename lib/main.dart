@@ -17,6 +17,8 @@ import 'services/task_service.dart';
 import 'services/memo_service.dart';
 import 'services/task_memo_service.dart';
 import 'services/notification_service.dart';
+import 'services/reminder_coordinator.dart';
+import 'services/reminder_settings_service.dart';
 import 'services/backup_file_service.dart';
 import 'services/app_update_service.dart';
 import 'sync/supabase_sync_gateway.dart';
@@ -26,6 +28,8 @@ import 'sync/sync_engine.dart';
 import 'sync/sync_status.dart';
 import 'screens/todo_screen.dart';
 import 'screens/memo_screen.dart';
+import 'screens/full_screen_reminder_screen.dart';
+import 'screens/reminder_settings_screen.dart';
 import 'widgets/app_update_dialog.dart';
 
 final todoScreenKey = GlobalKey<TodoScreenState>();
@@ -80,11 +84,18 @@ Future<void> main() async {
     gateway: syncGateway,
     isAuthenticated: () => syncGateway.isAuthenticated,
   );
+  final notificationService = NotificationService();
+  await notificationService.init();
+  final reminderSettingsService = ReminderSettingsService(DatabaseProvider());
+  late final ReminderCoordinator reminderCoordinator;
   final taskService = TaskService(
     taskRepo,
     subTaskRepo,
     categoryRepo,
-    onChanged: syncCoordinator.scheduleSync,
+    onChanged: () {
+      syncCoordinator.scheduleSync();
+      reminderCoordinator.scheduleRefresh();
+    },
   );
   final memoService = MemoService(
     memoRepo,
@@ -96,10 +107,17 @@ Future<void> main() async {
     taskMemoRepo,
     subTaskRepo,
     memoService,
-    onChanged: syncCoordinator.scheduleSync,
+    onChanged: () {
+      syncCoordinator.scheduleSync();
+      reminderCoordinator.scheduleRefresh();
+    },
   );
-  final notificationService = NotificationService();
-  await notificationService.init();
+  reminderCoordinator = ReminderCoordinator(
+    taskService,
+    notificationService,
+    reminderSettingsService,
+  );
+  await reminderCoordinator.refreshNow();
   syncCoordinator.start();
 
   // 恢复主题偏好
@@ -115,6 +133,8 @@ Future<void> main() async {
       taskService: taskService,
       memoService: memoService,
       notificationService: notificationService,
+      reminderSettingsService: reminderSettingsService,
+      reminderCoordinator: reminderCoordinator,
       taskMemoService: taskMemoService,
       syncCoordinator: syncCoordinator,
       syncGateway: syncGateway,
@@ -127,6 +147,8 @@ class TodoApp extends StatelessWidget {
   final TaskService taskService;
   final MemoService memoService;
   final NotificationService notificationService;
+  final ReminderSettingsService reminderSettingsService;
+  final ReminderCoordinator reminderCoordinator;
   final TaskMemoService taskMemoService;
   final SyncCoordinator syncCoordinator;
   final SupabaseSyncGateway syncGateway;
@@ -137,6 +159,8 @@ class TodoApp extends StatelessWidget {
     required this.taskService,
     required this.memoService,
     required this.notificationService,
+    required this.reminderSettingsService,
+    required this.reminderCoordinator,
     required this.taskMemoService,
     required this.syncCoordinator,
     required this.syncGateway,
@@ -148,7 +172,7 @@ class TodoApp extends StatelessWidget {
     return ValueListenableBuilder<ThemeMode>(
       valueListenable: themeModeNotifier,
       builder: (_, mode, _) => MaterialApp(
-        title: '备忘录',
+        title: 'Stride',
         debugShowCheckedModeBanner: false,
         theme: ThemeData(
           colorSchemeSeed: Colors.indigo,
@@ -242,6 +266,8 @@ class TodoApp extends StatelessWidget {
           taskService: taskService,
           memoService: memoService,
           notificationService: notificationService,
+          reminderSettingsService: reminderSettingsService,
+          reminderCoordinator: reminderCoordinator,
           taskMemoService: taskMemoService,
           syncCoordinator: syncCoordinator,
           syncGateway: syncGateway,
@@ -257,6 +283,8 @@ class MainScreen extends StatefulWidget {
   final TaskService taskService;
   final MemoService memoService;
   final NotificationService notificationService;
+  final ReminderSettingsService reminderSettingsService;
+  final ReminderCoordinator reminderCoordinator;
   final TaskMemoService taskMemoService;
   final SyncCoordinator syncCoordinator;
   final SupabaseSyncGateway syncGateway;
@@ -267,6 +295,8 @@ class MainScreen extends StatefulWidget {
     required this.taskService,
     required this.memoService,
     required this.notificationService,
+    required this.reminderSettingsService,
+    required this.reminderCoordinator,
     required this.taskMemoService,
     required this.syncCoordinator,
     required this.syncGateway,
@@ -290,6 +320,7 @@ class _MainScreenState extends State<MainScreen>
   bool _updateCheckInFlight = false;
   bool _updateDialogShowing = false;
   bool _manualUpdateFeedbackRequested = false;
+  bool _fullScreenReminderShowing = false;
 
   @override
   void initState() {
@@ -316,10 +347,14 @@ class _MainScreenState extends State<MainScreen>
       }
     });
     widget.notificationService.pendingNotification.addListener(_showPending);
+    widget.notificationService.launchedReminder.addListener(
+      _showLaunchedReminder,
+    );
     widget.syncCoordinator.status.addListener(_refreshAfterCloudSync);
     if (Platform.isAndroid) {
       unawaited(_restoreRootTab());
       WidgetsBinding.instance.addPostFrameCallback((_) {
+        _showLaunchedReminder();
         unawaited(_checkForAppUpdate(silent: true));
       });
     }
@@ -420,7 +455,11 @@ class _MainScreenState extends State<MainScreen>
   @override
   void dispose() {
     widget.notificationService.pendingNotification.removeListener(_showPending);
+    widget.notificationService.launchedReminder.removeListener(
+      _showLaunchedReminder,
+    );
     widget.syncCoordinator.status.removeListener(_refreshAfterCloudSync);
+    widget.reminderCoordinator.dispose();
     _tabController.dispose();
     unawaited(widget.syncCoordinator.dispose());
     super.dispose();
@@ -435,6 +474,7 @@ class _MainScreenState extends State<MainScreen>
       return;
     }
     _lastRenderedSyncAt = syncedAt;
+    widget.reminderCoordinator.scheduleRefresh();
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       await Future.wait([
         todoScreenKey.currentState?.refresh() ?? Future<void>.value(),
@@ -474,6 +514,54 @@ class _MainScreenState extends State<MainScreen>
             child: const Text('知道了'),
           ),
         ],
+      ),
+    );
+  }
+
+  void _showLaunchedReminder() {
+    if (_fullScreenReminderShowing || !mounted) return;
+    final launch = widget.notificationService.consumeLaunchedReminder();
+    if (launch == null) return;
+    _fullScreenReminderShowing = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
+      await Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          fullscreenDialog: true,
+          builder: (_) => FullScreenReminderScreen(
+            launch: launch,
+            taskService: widget.taskService,
+            notificationService: widget.notificationService,
+            reminderCoordinator: widget.reminderCoordinator,
+            settingsService: widget.reminderSettingsService,
+            onOpenToday: _openTodayFromReminder,
+          ),
+        ),
+      );
+      _fullScreenReminderShowing = false;
+      if (widget.notificationService.launchedReminder.value != null) {
+        _showLaunchedReminder();
+      }
+    });
+  }
+
+  void _openTodayFromReminder() {
+    _tabController.animateTo(0);
+    setState(() {
+      _todoPrimaryPage = TodoPrimaryPage.week;
+      _todoArrangementMode = true;
+    });
+    todoScreenKey.currentState?.setPrimaryPage(TodoPrimaryPage.week);
+  }
+
+  Future<void> _openReminderSettings() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => ReminderSettingsScreen(
+          settingsService: widget.reminderSettingsService,
+          notificationService: widget.notificationService,
+          reminderCoordinator: widget.reminderCoordinator,
+        ),
       ),
     );
   }
@@ -831,6 +919,8 @@ class _MainScreenState extends State<MainScreen>
                 await _importBackup();
               } else if (v == 'update') {
                 await _checkForAppUpdate(silent: false);
+              } else if (v == 'reminders') {
+                await _openReminderSettings();
               }
             },
             itemBuilder: (_) => [
@@ -853,6 +943,17 @@ class _MainScreenState extends State<MainScreen>
                 ),
               ),
               const PopupMenuDivider(),
+              if (Platform.isAndroid)
+                const PopupMenuItem(
+                  value: 'reminders',
+                  child: Row(
+                    children: [
+                      Icon(Icons.notifications_active_outlined, size: 20),
+                      SizedBox(width: 12),
+                      Text('提醒设置'),
+                    ],
+                  ),
+                ),
               if (Platform.isAndroid)
                 const PopupMenuItem(
                   value: 'update',

@@ -1,4 +1,4 @@
-# 🌸 小花备忘录 & Todo List
+# Stride
 
 Flutter 桌面效率工具 · Material 3 · SQLite 本地存储 · Windows + Android
 
@@ -23,6 +23,7 @@ Flutter 桌面效率工具 · Material 3 · SQLite 本地存储 · Windows + And
 - 手机端小精灵可拖动并吸附左右边缘，半藏探头、低频可爱走动和本地随机对话不挤占安排筛选区
 - 独立左/右方向素材 + 手脚关节步态；今日负荷超限时可改到明天或仍然创建
 - 自动完成检测（全部子任务完成→自动标记）
+- Android 任务到点使用带 Stride 铃声的全屏提醒；“稍后 10 分钟”跨重启保留，可选每 30 分钟 / 1 小时 / 2 小时全屏巡检今日未完成任务
 - 到期提醒 + 重复提醒 · 子任务闹钟 · Android 13+ 权限提示与重启恢复
 - 全文搜索 · 右键菜单 · 批量操作（多选完成/删除）
 - Android 记忆退出前的备忘录/安排、本周/阶段/收件箱及智能视图，重开直接回到上次页面
@@ -63,6 +64,7 @@ Flutter 桌面效率工具 · Material 3 · SQLite 本地存储 · Windows + And
 - Windows / Android SQLite 本地优先同步（Supabase 增量同步，可选 Realtime）
 - 标签分类保持原有结构；不启用 Markdown 编辑器
 - Android 支持 GitHub Releases 应用内更新：启动后每 24 小时自动检查、手动检查即时反馈、15 秒检查超时、非强制“稍后”、下载进度、完整性/包名/版本/签名校验和系统安装确认
+- Android 与 Windows 共用六序镜花应用图标并统一显示为 `Stride`；Windows Release 主程序为 `Stride.exe`
 
 ## 🚀 运行
 
@@ -75,7 +77,7 @@ flutter run -d <device>   # Android
 ## 📦 打包
 
 ```bash
-flutter build windows                    # exe 在 build/windows/x64/runner/Release/
+flutter build windows                    # Stride.exe 在 build/windows/x64/runner/Release/
 flutter build apk --release              # apk 在 build/app/outputs/flutter-apk/
 ```
 

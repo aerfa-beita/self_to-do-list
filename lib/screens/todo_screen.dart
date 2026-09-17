@@ -649,10 +649,12 @@ class TodoScreenState extends State<TodoScreen> with WidgetsBindingObserver {
       if (remindAt.isAfter(DateTime.now())) {
         final scheduled = await widget.notificationService.scheduleReminder(
           id: task.id! + 10000,
-          title: '📌 ${task.title}',
-          body: '截止日期到了',
+          title: Platform.isAndroid ? '任务时间到了' : '📌 ${task.title}',
+          body: Platform.isAndroid ? task.title : '截止日期到了',
           scheduledTime: remindAt,
           repeatType: task.repeatType,
+          fullScreen: Platform.isAndroid,
+          taskId: task.id,
         );
         if (!scheduled && mounted && !_reminderWarningShown) {
           _reminderWarningShown = true;

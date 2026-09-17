@@ -14,6 +14,8 @@ import 'package:todo_list/screens/memo_screen.dart';
 import 'package:todo_list/screens/todo_screen.dart';
 import 'package:todo_list/services/memo_service.dart';
 import 'package:todo_list/services/notification_service.dart';
+import 'package:todo_list/services/reminder_coordinator.dart';
+import 'package:todo_list/services/reminder_settings_service.dart';
 import 'package:todo_list/services/task_memo_service.dart';
 import 'package:todo_list/services/task_service.dart';
 import 'package:todo_list/sync/supabase_sync_gateway.dart';
@@ -195,17 +197,27 @@ void main() {
       MemoRepository(db),
       MemoCategoryRepository(db),
     );
+    final taskService = TaskService(
+      taskRepository,
+      subTaskRepository,
+      CategoryRepository(db),
+    );
+    final notificationService = NotificationService();
+    final reminderSettingsService = ReminderSettingsService(DatabaseProvider());
+    final reminderCoordinator = ReminderCoordinator(
+      taskService,
+      notificationService,
+      reminderSettingsService,
+    );
 
     await tester.pumpWidget(
       MaterialApp(
         home: MainScreen(
-          taskService: TaskService(
-            taskRepository,
-            subTaskRepository,
-            CategoryRepository(db),
-          ),
+          taskService: taskService,
           memoService: memoService,
-          notificationService: NotificationService(),
+          notificationService: notificationService,
+          reminderSettingsService: reminderSettingsService,
+          reminderCoordinator: reminderCoordinator,
           taskMemoService: TaskMemoService(
             taskRepository,
             TaskMemoRepository(db),

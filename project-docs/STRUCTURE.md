@@ -29,6 +29,7 @@ MY_Project/to-do_list/
 │       ├── chibi-companion-model-sheet.png # Q版人物建模设定稿
 │       ├── 安排与桌面小部件方案.svg/.png # 已确认的应用与小部件设计图
 │       ├── 安排页方案A/B*.png         # 9/16 安排页方向稿与 B 方案实际组件验收图
+│       ├── 本周今日优先*.png            # 9/17 本周今日锚点确认稿与实际组件验收图
 │       ├── 子任务详情页统一方案.svg/.png # 9/16 已确认的子任务方向稿
 │       ├── App图标-A6六序镜花*.svg/.png # Android 图标普通/圆形设计母版
 │       └── mascot_2_5d/              # 最终组装/编号/动作验收图
@@ -58,7 +59,7 @@ MY_Project/to-do_list/
 │   │   └── sync_status.dart
 │   ├── screens/
 │   │   ├── todo_screen.dart          # 来源状态视图 + 历史事件倒序 + 页面记忆与批量操作
-│   │   ├── flow_screen.dart          # 紧凑摘要 + 阶段/固定七天本周 + 周导航/日期状态卡片/拖动菜单
+│   │   ├── flow_screen.dart          # 紧凑摘要 + 固定七天本周/今日锚点 + 周导航/日期状态卡片/拖动菜单
 │   │   ├── task_detail_screen.dart   # 子任务进度卡/长按排序/层级菜单 + 顶部编辑
 │   │   └── memo_screen.dart          # 当前分类标题 + 弹窗创建 + 批量选择 + 搜索
 │   ├── widgets/
@@ -88,7 +89,7 @@ MY_Project/to-do_list/
 │   ├── sync_config_test.dart         # 本地公共配置回退
 │   ├── database_location_test.dart   # Windows旧库复制到稳定路径
 │   ├── mobile_layout_test.dart       # 手机输入栏/工具栏/筛选面板/右侧探头；runAsync隔离原生SQLite
-│   ├── arrangement_collapse_sort_test.dart # 固定七天、历史完成、独立排序、收起和 320dp 放大字体边界
+│   ├── arrangement_collapse_sort_test.dart # 固定七天、今日首屏锚点、历史完成、排序、收起和 320dp 边界
 │   ├── stage_week_visual_test.dart   # 390×844 B 方案阶段/本周真实组件视觉回归
 │   ├── task_detail_screen_test.dart  # 子任务菜单、390dp 视觉与 320dp 放大字体边界
 │   ├── goldens/                      # 阶段/本周/子任务详情手机端视觉基准 PNG

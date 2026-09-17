@@ -96,15 +96,11 @@ void main() {
     await tester.pump();
     await tester.pumpWidget(subject(ArrangementViewMode.week));
     await tester.pumpAndSettle();
-    final summaryRect = tester.getRect(
-      find.byKey(const Key('arrangement-compact-summary')),
+    final weekViewport = tester.getRect(
+      find.byKey(const Key('arrangement-week-list')),
     );
-    final todayLabelRect = tester.getRect(find.text('今日待办'));
-    expect(summaryRect.top, greaterThanOrEqualTo(50));
-    expect(
-      todayLabelRect.center.dy,
-      inInclusiveRange(summaryRect.top, summaryRect.bottom),
-    );
+    final todayPanel = tester.getRect(find.byKey(const Key('week-day-3')));
+    expect(todayPanel.top, closeTo(weekViewport.top, 0.1));
     await expectLater(
       find.byType(MaterialApp),
       matchesGoldenFile('goldens/week_mobile.png'),

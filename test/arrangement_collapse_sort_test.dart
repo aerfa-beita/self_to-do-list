@@ -50,6 +50,7 @@ Widget _arrangementSubject({
   ReorderWeeklyTasks? onReorderWeekDay,
   MoveWeeklyTask? onMoveToWeekDay,
   ValueChanged<Task>? onSyncStage,
+  ArrangementViewMode initialMode = ArrangementViewMode.stage,
 }) {
   return MaterialApp(
     home: Scaffold(
@@ -84,6 +85,7 @@ Widget _arrangementSubject({
           onReorderWeekDay: onReorderWeekDay,
           onMoveToWeekDay: onMoveToWeekDay,
           onSyncStage: onSyncStage,
+          initialMode: initialMode,
         ),
       ),
     ),
@@ -244,6 +246,7 @@ void main() {
         now: [_task(1, '一个很长很长的现在任务标题')],
         next: [_task(2, '接下来任务', mode: Task.planNextMode)],
         later: [_task(3, '稍后任务', mode: Task.planLaterMode)],
+        onAddWeekly: (_) {},
       ),
     );
 
@@ -252,9 +255,49 @@ void main() {
     await tester.tap(find.text('本周'));
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
-    expect(find.byKey(const Key('week-adjust-dates')), findsOneWidget);
+    expect(
+      find.byKey(const Key('week-adjust-dates'), skipOffstage: false),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const Key('week-adjust-dates')).hitTestable(),
+      findsNothing,
+    );
     expect(find.text('今天'), findsOneWidget);
     expect(find.text('今天 · 0'), findsNothing);
+    expect(find.byKey(const Key('week-add-3')), findsOneWidget);
+  });
+
+  testWidgets('current week opens with today at the top', (tester) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(390, 800);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.view.resetPhysicalSize);
+    final today = DateTime(2026, 9, 17);
+    await tester.pumpWidget(
+      _arrangementSubject(
+        size: const Size(390, 800),
+        today: today,
+        allUndone: [
+          _task(1, '周三任务', dueDate: DateTime(2026, 9, 16)),
+          _task(2, '今天任务', dueDate: today),
+        ],
+        allTasks: [
+          _task(1, '周三任务', dueDate: DateTime(2026, 9, 16)),
+          _task(2, '今天任务', dueDate: today),
+        ],
+        initialMode: ArrangementViewMode.week,
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final weekViewport = tester.getRect(
+      find.byKey(const Key('arrangement-week-list')),
+    );
+    final todayPanel = tester.getRect(find.byKey(const Key('week-day-4')));
+    expect(todayPanel.top, closeTo(weekViewport.top, 0.1));
+    expect(find.text('周四 · 9/17'), findsOneWidget);
+    expect(find.text('今天任务'), findsOneWidget);
   });
 
   testWidgets(
@@ -281,39 +324,52 @@ void main() {
 
       await tester.tap(find.text('本周'));
       await tester.pumpAndSettle();
-      expect(find.text('周一 9月14日'), findsOneWidget);
-      expect(find.text('周三 9月16日'), findsOneWidget);
+      expect(find.text('周一 · 9/14', skipOffstage: false), findsOneWidget);
+      expect(find.text('周三 · 9/16'), findsOneWidget);
       expect(find.text('今天 · 1'), findsOneWidget);
       expect(
-        find.byKey(const Key('arrangement-compact-summary')),
+        find.byKey(
+          const Key('arrangement-compact-summary'),
+          skipOffstage: false,
+        ),
         findsOneWidget,
       );
-      expect(find.text('本周待办'), findsOneWidget);
-      expect(find.byTooltip('任务操作'), findsNWidgets(2));
-      expect(find.text('周二 9月15日'), findsOneWidget);
-      expect(find.text('周四 9月17日'), findsOneWidget);
-      expect(find.text('周五 9月18日'), findsOneWidget);
-      expect(find.text('周六 9月19日'), findsOneWidget);
-      expect(find.textContaining('其余'), findsNothing);
-      expect(find.text('周二 9月15日 · 0'), findsNothing);
+      expect(find.text('本周待办', skipOffstage: false), findsOneWidget);
+      expect(find.byTooltip('任务操作', skipOffstage: false), findsNWidgets(2));
+      expect(find.text('周二 · 9/15', skipOffstage: false), findsOneWidget);
+      expect(find.text('周四 · 9/17', skipOffstage: false), findsOneWidget);
+      expect(find.text('周五 · 9/18', skipOffstage: false), findsOneWidget);
+      expect(find.text('周六 · 9/19', skipOffstage: false), findsOneWidget);
+      expect(find.textContaining('其余', skipOffstage: false), findsNothing);
+      expect(find.text('周二 · 9/15 · 0', skipOffstage: false), findsNothing);
+      final weekViewport = tester.getRect(
+        find.byKey(const Key('arrangement-week-list')),
+      );
+      final todayPanel = tester.getRect(find.byKey(const Key('week-day-3')));
+      expect(todayPanel.top, closeTo(weekViewport.top, 0.1));
 
-      await tester.tap(find.byKey(const ValueKey('arrangement-menu-1')));
+      await tester.tap(find.byKey(const ValueKey('arrangement-menu-2')));
       await tester.pumpAndSettle();
       expect(find.text('同步阶段'), findsOneWidget);
       expect(find.text('同步今日'), findsNothing);
       await tester.tap(find.text('同步阶段'));
       await tester.pumpAndSettle();
-      expect(stageSynced?.id, 1);
+      expect(stageSynced?.id, 2);
 
-      await tester.tap(find.text('周三 9月16日'));
+      await tester.tap(find.text('周三 · 9/16'));
       await tester.pumpAndSettle();
       expect(find.text('今天任务'), findsNothing);
       expect(find.byKey(const Key('week-add-3')), findsNothing);
-      await tester.tap(find.text('周三 9月16日'));
+      await tester.tap(find.text('周三 · 9/16'));
       await tester.pumpAndSettle();
       expect(find.text('今天任务'), findsOneWidget);
 
-      await tester.tap(find.text('周二 9月15日'));
+      await tester.drag(
+        find.byKey(const Key('arrangement-week-list')),
+        const Offset(0, 160),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('周二 · 9/15'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('添加到周二'));
       expect(addDate, DateTime(2026, 9, 15));
@@ -323,7 +379,7 @@ void main() {
         const Offset(0, -420),
       );
       await tester.pumpAndSettle();
-      expect(find.text('周日 9月20日'), findsOneWidget);
+      expect(find.text('周日 · 9/20'), findsOneWidget);
     },
   );
 
@@ -357,12 +413,18 @@ void main() {
 
     await tester.tap(find.text('本周'));
     await tester.pumpAndSettle();
-    expect(find.text('周三 9月16日'), findsOneWidget);
+    expect(find.text('周三 · 9/16'), findsOneWidget);
     expect(find.text('今天 · 1'), findsOneWidget);
-    expect(find.text('周二 9月15日'), findsOneWidget);
-    expect(find.text('1 待办'), findsOneWidget);
     expect(find.text('今天未完成'), findsOneWidget);
     expect(find.text('今天已完成'), findsNothing);
+
+    await tester.drag(
+      find.byKey(const Key('arrangement-week-list')),
+      const Offset(0, 160),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('周二 · 9/15'), findsOneWidget);
+    expect(find.text('1 待办'), findsOneWidget);
     expect(find.text('昨天未完成'), findsOneWidget);
     expect(find.text('昨天已完成'), findsOneWidget);
   });
@@ -391,11 +453,16 @@ void main() {
 
     await tester.tap(find.text('本周'));
     await tester.pumpAndSettle();
-    expect(find.text('周一 9月14日'), findsOneWidget);
-    expect(find.text('已完成'), findsOneWidget);
+    expect(find.text('周一 · 9/14', skipOffstage: false), findsOneWidget);
+    expect(find.text('已完成', skipOffstage: false), findsOneWidget);
     expect(find.text('周一已完成'), findsNothing);
 
-    await tester.tap(find.text('周一 9月14日'));
+    await tester.drag(
+      find.byKey(const Key('arrangement-week-list')),
+      const Offset(0, 220),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('周一 · 9/14'));
     await tester.pumpAndSettle();
     expect(find.text('周一已完成'), findsOneWidget);
   });

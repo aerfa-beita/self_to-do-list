@@ -69,6 +69,8 @@ void main() {
     late Task task;
     late TaskService service;
     late int mathId;
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
     await tester.runAsync(() async {
       db = await DatabaseProvider().openAtPath(inMemoryDatabasePath);
       final taskRepository = TaskRepository(db);
@@ -87,7 +89,7 @@ void main() {
           taskId: taskId,
           title: '代数',
           level: 0,
-          dueDate: DateTime(2026, 9, 16),
+          dueDate: today,
           reminderTime: DateTime(2024, 1, 1, 21, 30),
         ),
       );

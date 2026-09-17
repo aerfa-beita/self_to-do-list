@@ -100,15 +100,17 @@ class _TaskArrangementViewState extends State<TaskArrangementView> {
   Offset? _dragGlobalPosition;
   final ScrollController _weekScrollController = ScrollController();
   final GlobalKey _weekListKey = GlobalKey();
+  final GlobalKey _todayWeekAnchorKey = GlobalKey();
   Set<String> _collapsedModes = <String>{};
   final Set<int> _collapsedWeekdays = <int>{};
-  final Set<int> _expandedEmptyWeekdays = <int>{};
+  final Set<String> _expandedEmptyDays = <String>{};
 
   @override
   void initState() {
     super.initState();
     _collapsedModes = _validCollapsedModes(widget.collapsedModes);
     _viewMode = widget.initialMode;
+    _expandedEmptyDays.add(_dateKey(_today));
     _applyWeekCollapseDefaults();
     _scheduleMidnightRefresh();
   }
@@ -122,7 +124,11 @@ class _TaskArrangementViewState extends State<TaskArrangementView> {
       nextDay.difference(now) + const Duration(milliseconds: 200),
       () {
         if (!mounted) return;
-        setState(_applyWeekCollapseDefaults);
+        setState(() {
+          _expandedEmptyDays.add(_dateKey(_today));
+          _applyWeekCollapseDefaults();
+        });
+        _scheduleWeekScrollOrigin();
         _scheduleMidnightRefresh();
       },
     );
@@ -170,15 +176,38 @@ class _TaskArrangementViewState extends State<TaskArrangementView> {
     if (!_sameModes(_collapsedModes, next)) {
       _collapsedModes = next;
     }
-    if (widget.initialMode != oldWidget.initialMode) {
+    final modeChanged = widget.initialMode != oldWidget.initialMode;
+    final todayChanged = widget.today != oldWidget.today;
+    if (modeChanged) {
       _viewMode = widget.initialMode;
     }
+    if (todayChanged) {
+      _expandedEmptyDays.add(_dateKey(_today));
+    }
     if (_viewMode == ArrangementViewMode.week &&
-        (widget.initialMode != oldWidget.initialMode ||
+        (modeChanged ||
+            todayChanged ||
             widget.allTasks != oldWidget.allTasks ||
             widget.allUndoneTasks != oldWidget.allUndoneTasks)) {
       _applyWeekCollapseDefaults();
     }
+    if (_viewMode == ArrangementViewMode.week &&
+        (modeChanged || todayChanged)) {
+      _scheduleWeekScrollOrigin();
+    }
+  }
+
+  String _dateKey(DateTime day) => '${day.year}-${day.month}-${day.day}';
+
+  void _scheduleWeekScrollOrigin() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted ||
+          _viewMode != ArrangementViewMode.week ||
+          !_weekScrollController.hasClients) {
+        return;
+      }
+      _weekScrollController.jumpTo(0);
+    });
   }
 
   Set<String> _validCollapsedModes(Iterable<String> modes) =>
@@ -250,6 +279,9 @@ class _TaskArrangementViewState extends State<TaskArrangementView> {
                   _viewMode = selection.first;
                   _adjustingDates = false;
                 });
+                if (selection.first == ArrangementViewMode.week) {
+                  _scheduleWeekScrollOrigin();
+                }
                 widget.onModeChanged?.call(selection.first);
               },
             ),
@@ -470,76 +502,105 @@ class _TaskArrangementViewState extends State<TaskArrangementView> {
     );
     return KeyedSubtree(
       key: const Key('arrangement-week-list'),
-      child: ListView(
+      child: CustomScrollView(
         controller: _weekScrollController,
         key: _weekListKey,
-        padding: const EdgeInsets.fromLTRB(12, 4, 12, 24),
-        children: [
-          if (compact) ...[
-            _compactSummary(_weekStart),
-            const SizedBox(height: 10),
-          ],
-          _WeekNavigator(
-            label: _weekRangeLabel(_weekStart),
-            isCurrentWeek: _weekOffset == 0,
-            onPrevious: () => setState(() {
-              _weekOffset--;
-              _applyWeekCollapseDefaults();
-            }),
-            onCurrent: () => setState(() {
-              _weekOffset = 0;
-              _applyWeekCollapseDefaults();
-            }),
-            onNext: () => setState(() {
-              _weekOffset++;
-              _applyWeekCollapseDefaults();
-            }),
-            adjustingDates: _adjustingDates,
-            onToggleAdjust: () =>
-                setState(() => _adjustingDates = !_adjustingDates),
+        center: compact && _weekOffset == 0 ? _todayWeekAnchorKey : null,
+        slivers: [
+          SliverPadding(
+            padding: const EdgeInsets.fromLTRB(12, 4, 12, 10),
+            sliver: SliverToBoxAdapter(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (compact) ...[
+                    _compactSummary(_weekStart),
+                    const SizedBox(height: 10),
+                  ],
+                  _WeekNavigator(
+                    label: _weekRangeLabel(_weekStart),
+                    isCurrentWeek: _weekOffset == 0,
+                    onPrevious: () {
+                      setState(() {
+                        _weekOffset--;
+                        _applyWeekCollapseDefaults();
+                      });
+                      _scheduleWeekScrollOrigin();
+                    },
+                    onCurrent: () {
+                      setState(() {
+                        _weekOffset = 0;
+                        _applyWeekCollapseDefaults();
+                      });
+                      _scheduleWeekScrollOrigin();
+                    },
+                    onNext: () {
+                      setState(() {
+                        _weekOffset++;
+                        _applyWeekCollapseDefaults();
+                      });
+                      _scheduleWeekScrollOrigin();
+                    },
+                    adjustingDates: _adjustingDates,
+                    onToggleAdjust: () =>
+                        setState(() => _adjustingDates = !_adjustingDates),
+                  ),
+                  if (_adjustingDates)
+                    const Padding(
+                      padding: EdgeInsets.fromLTRB(8, 8, 8, 0),
+                      child: Text('拖动未完成任务到目标日期'),
+                    ),
+                  if (compact) ...[const SizedBox(height: 8), _statusFilter()],
+                ],
+              ),
+            ),
           ),
-          if (_adjustingDates)
-            const Padding(
-              padding: EdgeInsets.fromLTRB(8, 8, 8, 0),
-              child: Text('拖动未完成任务到目标日期'),
-            ),
-          if (compact) ...[const SizedBox(height: 8), _statusFilter()],
-          const SizedBox(height: 10),
           for (final day in days) ...[
-            _WeekdayPanel(
-              day: day,
-              today: _today,
-              title: _weekdayLabel(day),
-              tasks: _tasksForDay(day),
-              collapsed: _tasksForDay(day).isEmpty
-                  ? !_expandedEmptyWeekdays.contains(day.weekday)
-                  : _collapsedWeekdays.contains(day.weekday),
-              onToggleCollapsed: () => setState(() {
-                final set = _tasksForDay(day).isEmpty
-                    ? _expandedEmptyWeekdays
-                    : _collapsedWeekdays;
-                if (!set.add(day.weekday)) {
-                  set.remove(day.weekday);
-                }
-              }),
-              onAddTask: widget.onAddWeeklyTask,
-              onToggleTask: widget.onToggleTask,
-              onOpenTask: widget.onOpenTask,
-              onMoveTask: widget.onMoveTask,
-              onEditTask: widget.onEditTask,
-              onDeleteTask: widget.onDeleteTask,
-              onSyncStage: widget.onSyncStage,
-              adjustingDates: _adjustingDates,
-              onReorder: widget.onReorderWeekDay == null
-                  ? null
-                  : (oldIndex, newIndex) =>
-                        widget.onReorderWeekDay!(day, oldIndex, newIndex),
-              onMoveToDay: widget.onMoveToWeekDay,
-              onDragUpdate: _trackWeekDrag,
-              onDragEnd: _stopWeekDrag,
+            SliverPadding(
+              key: compact && _sameDay(day, _today) && _weekOffset == 0
+                  ? _todayWeekAnchorKey
+                  : null,
+              padding: const EdgeInsets.fromLTRB(12, 0, 12, 10),
+              sliver: SliverToBoxAdapter(
+                child: _WeekdayPanel(
+                  day: day,
+                  today: _today,
+                  title: _weekdayLabel(day),
+                  tasks: _tasksForDay(day),
+                  collapsed: _tasksForDay(day).isEmpty
+                      ? !_expandedEmptyDays.contains(_dateKey(day))
+                      : _collapsedWeekdays.contains(day.weekday),
+                  onToggleCollapsed: () => setState(() {
+                    if (_tasksForDay(day).isEmpty) {
+                      final key = _dateKey(day);
+                      if (!_expandedEmptyDays.add(key)) {
+                        _expandedEmptyDays.remove(key);
+                      }
+                    } else if (!_collapsedWeekdays.add(day.weekday)) {
+                      _collapsedWeekdays.remove(day.weekday);
+                    }
+                  }),
+                  onAddTask: widget.onAddWeeklyTask,
+                  onToggleTask: widget.onToggleTask,
+                  onOpenTask: widget.onOpenTask,
+                  onMoveTask: widget.onMoveTask,
+                  onEditTask: widget.onEditTask,
+                  onDeleteTask: widget.onDeleteTask,
+                  onSyncStage: widget.onSyncStage,
+                  adjustingDates: _adjustingDates,
+                  onReorder: widget.onReorderWeekDay == null
+                      ? null
+                      : (oldIndex, newIndex) =>
+                            widget.onReorderWeekDay!(day, oldIndex, newIndex),
+                  onMoveToDay: widget.onMoveToWeekDay,
+                  onDragUpdate: _trackWeekDrag,
+                  onDragEnd: _stopWeekDrag,
+                ),
+              ),
             ),
-            const SizedBox(height: 10),
           ],
+          const SliverToBoxAdapter(child: SizedBox(height: 14)),
         ],
       ),
     );
@@ -873,7 +934,7 @@ class _WeekdayPanel extends StatelessWidget {
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        '$title ${day.month}月${day.day}日',
+                        '$title · ${day.month}/${day.day}',
                         style: const TextStyle(fontWeight: FontWeight.w700),
                       ),
                     ),

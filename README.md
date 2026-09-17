@@ -62,7 +62,7 @@ Flutter 桌面效率工具 · Material 3 · SQLite 本地存储 · Windows + And
 - 手机 Todo 列表与备忘录通过右下角按钮按需创建；Todo 安排页仅保留分组内添加入口
 - Windows / Android SQLite 本地优先同步（Supabase 增量同步，可选 Realtime）
 - 标签分类保持原有结构；不启用 Markdown 编辑器
-- Android 支持 GitHub Releases 应用内更新：24 小时自动检查、手动检查、下载进度、完整性/包名/版本/签名校验和系统安装确认
+- Android 支持 GitHub Releases 应用内更新：启动后每 24 小时自动检查、手动检查即时反馈、15 秒检查超时、非强制“稍后”、下载进度、完整性/包名/版本/签名校验和系统安装确认
 
 ## 🚀 运行
 

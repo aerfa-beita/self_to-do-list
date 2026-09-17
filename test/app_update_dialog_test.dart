@@ -54,4 +54,51 @@ void main() {
     expect(find.text('下载更新'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets('a minimum-version warning can still be postponed', (
+    tester,
+  ) async {
+    final update = AppUpdateCheck(
+      installed: const InstalledAppVersion(
+        versionName: '1.2.2',
+        versionCode: 5,
+      ),
+      manifest: AppUpdateManifest.fromJson({
+        'versionName': '2.0.0',
+        'versionCode': 10,
+        'minSupportedVersionCode': 6,
+        'apkUrl': 'https://github.com/example/file.apk',
+        'sha256': 'f' * 64,
+        'sizeBytes': 1572864,
+        'changelog': '重要兼容更新',
+        'publishedAt': '2026-09-17T08:00:00Z',
+      }),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Builder(
+          builder: (context) => Scaffold(
+            body: FilledButton(
+              onPressed: () => showAppUpdateDialog(
+                context: context,
+                service: AppUpdateService(),
+                update: update,
+              ),
+              child: const Text('打开强更新提示'),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('打开强更新提示'));
+    await tester.pumpAndSettle();
+    expect(find.text('建议更新到 2.0.0'), findsOneWidget);
+    expect(find.text('稍后'), findsOneWidget);
+
+    await tester.tap(find.text('稍后'));
+    await tester.pumpAndSettle();
+    expect(find.text('建议更新到 2.0.0'), findsNothing);
+  });
 }

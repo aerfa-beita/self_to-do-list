@@ -9,7 +9,7 @@ Future<void> showAppUpdateDialog({
 }) {
   return showDialog<void>(
     context: context,
-    barrierDismissible: !update.isRequired,
+    barrierDismissible: true,
     builder: (_) => _AppUpdateDialog(service: service, update: update),
   );
 }
@@ -100,7 +100,7 @@ class _AppUpdateDialogState extends State<_AppUpdateDialog> {
     final manifest = widget.update.manifest;
     final downloading = _phase == _UpdatePhase.downloading;
     return PopScope(
-      canPop: !downloading && !widget.update.isRequired,
+      canPop: !downloading,
       onPopInvokedWithResult: (didPop, _) {
         if (!didPop && downloading) _cancelToken?.cancel();
       },
@@ -112,7 +112,7 @@ class _AppUpdateDialogState extends State<_AppUpdateDialog> {
         ),
         title: Text(
           widget.update.isRequired
-              ? '需要更新到 ${manifest.versionName}'
+              ? '建议更新到 ${manifest.versionName}'
               : '发现新版本 ${manifest.versionName}',
         ),
         content: ConstrainedBox(
@@ -134,7 +134,7 @@ class _AppUpdateDialogState extends State<_AppUpdateDialog> {
                 if (widget.update.isRequired) ...[
                   const SizedBox(height: 12),
                   Text(
-                    '当前版本已低于最低支持版本，建议完成更新后继续使用。',
+                    '当前版本兼容性较低，建议尽快更新；也可以稍后处理。',
                     style: TextStyle(
                       color: Theme.of(context).colorScheme.error,
                     ),

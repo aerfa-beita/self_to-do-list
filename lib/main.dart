@@ -289,6 +289,7 @@ class _MainScreenState extends State<MainScreen>
   late final AppUpdateService _appUpdateService;
   bool _updateCheckInFlight = false;
   bool _updateDialogShowing = false;
+  bool _manualUpdateFeedbackRequested = false;
 
   @override
   void initState() {
@@ -325,38 +326,46 @@ class _MainScreenState extends State<MainScreen>
   }
 
   Future<void> _checkForAppUpdate({required bool silent}) async {
-    if (!Platform.isAndroid || _updateCheckInFlight || _updateDialogShowing) {
+    if (!Platform.isAndroid) {
       return;
     }
-    final database = DatabaseProvider();
-    if (silent) {
-      final saved = int.tryParse(
-        await database.getSetting('android_last_update_check') ?? '',
-      );
-      if (saved != null &&
-          DateTime.now().difference(
-                DateTime.fromMillisecondsSinceEpoch(saved),
-              ) <
-              const Duration(hours: 24)) {
-        return;
+    if (_updateDialogShowing) return;
+    if (_updateCheckInFlight) {
+      if (!silent && mounted) {
+        _manualUpdateFeedbackRequested = true;
+        _showUpdateCheckingNotice();
       }
+      return;
     }
     _updateCheckInFlight = true;
+    _manualUpdateFeedbackRequested = !silent;
     if (!silent && mounted) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('正在检查更新…')));
+      _showUpdateCheckingNotice();
     }
+    final database = DatabaseProvider();
     try {
+      if (silent) {
+        final saved = int.tryParse(
+          await database.getSetting('android_last_update_check') ?? '',
+        );
+        final checkedRecently =
+            saved != null &&
+            DateTime.now().difference(
+                  DateTime.fromMillisecondsSinceEpoch(saved),
+                ) <
+                const Duration(hours: 24);
+        if (checkedRecently && !_manualUpdateFeedbackRequested) return;
+      }
+      final update = await _appUpdateService.checkForUpdate();
       await database.setSetting(
         'android_last_update_check',
         DateTime.now().millisecondsSinceEpoch.toString(),
       );
-      final update = await _appUpdateService.checkForUpdate();
       if (!mounted) return;
+      final shouldReport = _manualUpdateFeedbackRequested;
       ScaffoldMessenger.of(context).hideCurrentSnackBar();
       if (update == null) {
-        if (!silent) {
+        if (shouldReport) {
           ScaffoldMessenger.of(
             context,
           ).showSnackBar(const SnackBar(content: Text('已是最新版本')));
@@ -370,15 +379,30 @@ class _MainScreenState extends State<MainScreen>
         update: update,
       );
     } catch (error) {
-      if (!mounted || silent) return;
+      if (!mounted || !_manualUpdateFeedbackRequested) return;
       ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      final message = error is UpdateCheckException
+          ? error.message
+          : '检查更新失败，请稍后重试';
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text('检查更新失败：$error')));
+      ).showSnackBar(SnackBar(content: Text(message)));
     } finally {
       _updateCheckInFlight = false;
       _updateDialogShowing = false;
+      _manualUpdateFeedbackRequested = false;
     }
+  }
+
+  void _showUpdateCheckingNotice() {
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.hideCurrentSnackBar();
+    messenger.showSnackBar(
+      const SnackBar(
+        content: Text('正在检查更新，请稍候…'),
+        duration: Duration(seconds: 16),
+      ),
+    );
   }
 
   Future<void> _restoreRootTab() async {

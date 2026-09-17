@@ -1,3 +1,6 @@
+import 'dart:async';
+import 'dart:io';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:todo_list/services/app_update_service.dart';
 
@@ -95,5 +98,73 @@ void main() {
   test('formats download sizes for the update dialog', () {
     expect(AppUpdateService.formatBytes(1024), '1 KB');
     expect(AppUpdateService.formatBytes(1572864), '1.5 MB');
+  });
+
+  group('AppUpdateService check', () {
+    final manifestUri = Uri.parse(
+      'https://github.com/example/releases/latest/download/update-manifest.json',
+    );
+    const installed = InstalledAppVersion(versionName: '1.2.2', versionCode: 5);
+
+    test('applies a total timeout to manifest loading', () async {
+      final service = AppUpdateService(
+        manifestUri: manifestUri,
+        checkTimeout: const Duration(milliseconds: 10),
+        installedVersionLoader: () async => installed,
+        manifestLoader: (_) => Completer<Map<String, dynamic>>().future,
+      );
+
+      await expectLater(
+        service.checkForUpdate(),
+        throwsA(
+          isA<UpdateCheckException>().having(
+            (error) => error.message,
+            'message',
+            contains('超时'),
+          ),
+        ),
+      );
+    });
+
+    test('turns network failures into an actionable message', () async {
+      final service = AppUpdateService(
+        manifestUri: manifestUri,
+        installedVersionLoader: () async => installed,
+        manifestLoader: (_) => throw const SocketException('offline'),
+      );
+
+      await expectLater(
+        service.checkForUpdate(),
+        throwsA(
+          isA<UpdateCheckException>().having(
+            (error) => error.message,
+            'message',
+            contains('网络或代理'),
+          ),
+        ),
+      );
+    });
+
+    test('returns a newer release from an injected manifest', () async {
+      final service = AppUpdateService(
+        manifestUri: manifestUri,
+        installedVersionLoader: () async => installed,
+        manifestLoader: (_) async => {
+          'versionName': '1.3.0',
+          'versionCode': 6,
+          'minSupportedVersionCode': 5,
+          'apkUrl': 'https://github.com/example/file.apk',
+          'sha256': 'e' * 64,
+          'sizeBytes': 4096,
+          'changelog': '更新检查修复',
+          'publishedAt': '2026-09-17T08:00:00Z',
+        },
+      );
+
+      final update = await service.checkForUpdate();
+
+      expect(update?.manifest.versionCode, 6);
+      expect(update?.isRequired, isFalse);
+    });
   });
 }

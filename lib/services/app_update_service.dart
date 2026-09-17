@@ -106,10 +106,28 @@ class UpdateCancelToken {
 
 enum UpdateInstallResult { started, permissionRequired, unsupported }
 
+class UpdateCheckException implements Exception {
+  const UpdateCheckException(this.message);
+
+  final String message;
+
+  @override
+  String toString() => message;
+}
+
+typedef UpdateManifestLoader = Future<Map<String, dynamic>> Function(Uri uri);
+typedef InstalledVersionLoader = Future<InstalledAppVersion> Function();
+
 class AppUpdateService {
-  AppUpdateService({Uri? manifestUri, HttpClient Function()? httpClientFactory})
-    : manifestUri = manifestUri ?? Uri.parse(_defaultManifestUrl),
-      _httpClientFactory = httpClientFactory ?? HttpClient.new;
+  AppUpdateService({
+    Uri? manifestUri,
+    HttpClient Function()? httpClientFactory,
+    Duration? checkTimeout,
+    this.manifestLoader,
+    this.installedVersionLoader,
+  }) : manifestUri = manifestUri ?? Uri.parse(_defaultManifestUrl),
+       checkTimeout = checkTimeout ?? const Duration(seconds: 15),
+       _httpClientFactory = httpClientFactory ?? HttpClient.new;
 
   static const _channel = MethodChannel('todo_list/app_update');
   static const _defaultManifestUrl = String.fromEnvironment(
@@ -120,41 +138,79 @@ class AppUpdateService {
   static const _maxManifestBytes = 256 * 1024;
 
   final Uri manifestUri;
+  final Duration checkTimeout;
   final HttpClient Function() _httpClientFactory;
+  final UpdateManifestLoader? manifestLoader;
+  final InstalledVersionLoader? installedVersionLoader;
 
   static bool isTrustedDownloadUri(Uri uri) =>
       AppUpdateManifest._isTrustedGithubUri(uri);
 
   Future<AppUpdateCheck?> checkForUpdate() async {
     if (!isTrustedDownloadUri(manifestUri)) {
-      throw const FormatException('更新清单地址必须使用受信任的 GitHub HTTPS 地址');
+      throw const UpdateCheckException('更新清单地址必须使用受信任的 GitHub HTTPS 地址');
     }
-    final installed = await _installedVersion();
-    final client = _httpClientFactory()
-      ..connectionTimeout = const Duration(seconds: 15);
+    HttpClient? client;
     try {
-      final response = await _get(client, manifestUri);
-      if (response.statusCode != HttpStatus.ok) {
-        throw HttpException('更新清单请求失败：${response.statusCode}');
+      final installed = await _loadInstalledVersion();
+      final Future<Map<String, dynamic>> manifestFuture;
+      if (manifestLoader case final loader?) {
+        manifestFuture = loader(manifestUri);
+      } else {
+        client = _httpClientFactory()..connectionTimeout = checkTimeout;
+        manifestFuture = _fetchManifest(client, manifestUri);
       }
-      _validateRedirects(response);
-      final bytes = <int>[];
-      await for (final chunk in response) {
-        bytes.addAll(chunk);
-        if (bytes.length > _maxManifestBytes) {
-          throw const FormatException('更新清单过大');
-        }
-      }
-      final decoded = jsonDecode(utf8.decode(bytes));
-      if (decoded is! Map<String, dynamic>) {
-        throw const FormatException('更新清单不是 JSON 对象');
-      }
+      final decoded = await manifestFuture.timeout(
+        checkTimeout,
+        onTimeout: () {
+          client?.close(force: true);
+          throw const UpdateCheckException('连接 GitHub 超时，请检查网络后重试');
+        },
+      );
       final manifest = AppUpdateManifest.fromJson(decoded);
       if (manifest.versionCode <= installed.versionCode) return null;
       return AppUpdateCheck(installed: installed, manifest: manifest);
+    } on UpdateCheckException {
+      rethrow;
+    } on HandshakeException {
+      throw const UpdateCheckException('GitHub 安全连接失败，请检查系统时间或网络证书');
+    } on SocketException {
+      throw const UpdateCheckException('无法连接 GitHub，请检查网络或代理设置');
+    } on HttpException catch (error) {
+      throw UpdateCheckException(error.message);
+    } on FormatException catch (error) {
+      throw UpdateCheckException(error.message.toString());
+    } catch (_) {
+      throw const UpdateCheckException('检查更新失败，请稍后重试');
     } finally {
-      client.close(force: true);
+      client?.close(force: true);
     }
+  }
+
+  Future<Map<String, dynamic>> _fetchManifest(
+    HttpClient client,
+    Uri uri,
+  ) async {
+    final response = await _get(client, uri);
+    if (response.statusCode == HttpStatus.notFound) {
+      throw const UpdateCheckException('GitHub Releases 尚未发布更新清单');
+    }
+    if (response.statusCode != HttpStatus.ok) {
+      throw UpdateCheckException('更新服务器返回 HTTP ${response.statusCode}');
+    }
+    _validateRedirects(response);
+    final bytes = <int>[];
+    await for (final chunk in response) {
+      bytes.addAll(chunk);
+      if (bytes.length > _maxManifestBytes) {
+        throw const UpdateCheckException('更新清单过大');
+      }
+    }
+    final decoded = jsonDecode(utf8.decode(bytes));
+    if (decoded is! Map<String, dynamic>) {
+      throw const UpdateCheckException('更新清单不是 JSON 对象');
+    }
+    return decoded;
   }
 
   Future<String> downloadAndVerify(
@@ -238,7 +294,8 @@ class AppUpdateService {
     };
   }
 
-  Future<InstalledAppVersion> _installedVersion() async {
+  Future<InstalledAppVersion> _loadInstalledVersion() async {
+    if (installedVersionLoader case final loader?) return loader();
     final value = await _channel.invokeMapMethod<String, dynamic>(
       'getInstalledVersion',
     );

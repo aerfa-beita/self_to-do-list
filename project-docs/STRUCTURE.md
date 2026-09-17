@@ -1,6 +1,6 @@
 ﻿# to-do_list — 项目结构
 
-> 最后更新：2026-09-16
+> 最后更新：2026-09-17
 
 ---
 
@@ -30,6 +30,7 @@ MY_Project/to-do_list/
 │       ├── 安排与桌面小部件方案.svg/.png # 已确认的应用与小部件设计图
 │       ├── 安排页方案A/B*.png         # 9/16 安排页方向稿与 B 方案实际组件验收图
 │       ├── 子任务详情页统一方案.svg/.png # 9/16 已确认的子任务方向稿
+│       ├── App图标-A6六序镜花*.svg/.png # Android 图标普通/圆形设计母版
 │       └── mascot_2_5d/              # 最终组装/编号/动作验收图
 ├── project-docs/                     # 索引/结构/统计 🆕
 ├── lib/
@@ -102,7 +103,7 @@ MY_Project/to-do_list/
         │   ├── MainActivity.kt        # 备份/电池/小部件 + APK 身份校验与系统安装
         │   ├── WidgetTaskStore.kt / WidgetActionReceiver.kt
         │   └── WidgetQuickTaskActivity.kt / WidgetContract.kt # Intent kind 贯穿小部件操作
-        └── res/                      # 小部件资源 + 更新 APK FileProvider 路径
+        └── res/                      # A6 自适应/单色/五档图标 + 小部件 + 更新 APK 路径
 ```
 
 ## DB 版本历史

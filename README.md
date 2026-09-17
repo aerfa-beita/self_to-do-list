@@ -50,6 +50,7 @@ Flutter 桌面效率工具 · Material 3 · SQLite 本地存储 · Windows + And
 - 三点菜单按编辑、移动阶段、删除排列；不提供桌面拖拽排序
 
 **通用**
+- Android 使用 A6“六序镜花”自适应图标，支持圆形遮罩、旧系统分辨率和 Android 13 单色主题图标
 - 深色模式（Ctrl+D，重启记忆）· 快捷键（Ctrl+N 新建 / Ctrl+E 聚焦输入框 / Ctrl+F 搜索 / Ctrl+D 切换主题）
 - 长按拖拽排序 · 三点操作菜单 · Windows 右键菜单
 - 搜索框智能隐藏（滚回顶部自动出现）

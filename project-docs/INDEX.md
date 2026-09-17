@@ -1,6 +1,6 @@
 ﻿# to-do_list — 项目索引
 
-> 最后更新：2026-09-16
+> 最后更新：2026-09-17
 
 ---
 
@@ -18,6 +18,15 @@ Flutter 桌面端（Windows + Android）备忘录 + Todo List 应用，Material 
 | [README.md](../README.md) | GitHub 首页 |
 | [STRUCTURE.md](STRUCTURE.md) | 目录结构、文件关系、架构图 |
 | [CODE_STATS.md](CODE_STATS.md) | 代码统计 |
+
+## [2026-09-17 Android A6 六序镜花图标](../docs/2026-09-17-Android-A6六序镜花图标.md)
+
+| 检查 | 结果 |
+|------|------|
+| 设计 | 六个分离棱镜模块 + 中心六边形完成标记 |
+| 适配 | Android 自适应、圆形、Android 13 单色、旧系统五档 PNG |
+| 资源验证 | 1024px / 48px 人工检查；`aapt2 compile` 通过 |
+| 待验收 | 普通终端构建正式 APK，并在不同 Launcher 遮罩下检查 |
 
 ## [2026-09-16 Android 签名校验空安全编译修复](../docs/2026-09-16-Android签名校验空安全编译修复.md)
 

@@ -1,6 +1,6 @@
 ﻿# todo_list — 项目规则与进度
 
-> 最后更新：2026-09-16 · DB v23 · 路径 `D:\MY_Project\to-do_list`
+> 最后更新：2026-09-17 · DB v23 · 路径 `D:\MY_Project\to-do_list`
 > 技术栈/架构/环境详见 `project-docs/INDEX.md` + `STRUCTURE.md`
 
 ---
@@ -9,12 +9,12 @@
 
 | 项目 | 内容 |
 |------|------|
-| **日期** | 2026-09-16 |
-| **做了什么** | 修复 Android Release 的 Kotlin 空安全编译错误：旧签名数组改为安全读取，并补上签名集合为空时拒绝安装的安全边界。 |
-| **下一步** | 小花先生在普通 PowerShell/Android Studio 重新执行 `flutter build apk --release --no-pub`；成功后核对 APK 包名、版本、证书和生成时间，再进行子任务与更新链真机验收。 |
-| **踩坑** | `PackageInfo.signatures` 是可空平台类型，旧 API 分支必须显式处理 null；Codex/JBR 仍在 Gradle 启动时发生回环连接错误，无法代替普通终端完成 Android 编译。 |
-| **已知问题** | 修复后的正式 APK 尚待普通终端构建；Android 真机手势与应用内覆盖升级仍未验收；`PRODUCT.md` 平台结构仍是旧格式。 |
-| **自我改进** | 签名校验必须采用失败关闭：任一签名集合为空也要拒绝，不能只比较两个集合是否相等。 |
+| **日期** | 2026-09-17 |
+| **做了什么** | 按确认的 A6“六序镜花”替换 Android 默认图标：补齐自适应、圆形、Android 13 单色及旧系统五档 PNG，资源编译通过。 |
+| **下一步** | 小花先生在普通 PowerShell/Android Studio 执行 `flutter build apk --release --no-pub`；安装后检查桌面圆形/圆角方形遮罩、主题图标和 48px 清晰度。 |
+| **踩坑** | App 图标不能只替换 `mipmap` PNG；Android 8+ 需要自适应前景/背景，Android 13 单色层应放在 v33 资源入口，旧系统还需默认圆形资源。 |
+| **已知问题** | Codex/JBR 的回环连接故障仍阻止 Gradle 构建；正式 APK、Launcher 缓存刷新和不同厂商桌面遮罩尚待真机验收。 |
+| **自我改进** | 图标确认前先用圆形、圆角方形和 48px 三种视图验收；确认后保留 SVG 母版并用 `aapt2` 独立验证 Android 资源。 |
 
 ---
 
@@ -43,6 +43,7 @@
 
 | 批次 | 内容 |
 |------|------|
+| 9/17 | Android A6“六序镜花”自适应、圆形、单色主题与旧系统图标；见 `docs/2026-09-17-Android-A6六序镜花图标.md` |
 | 9/16 | Android APK 签名数组空安全编译修复，并拒绝缺失签名的更新包；见 `docs/2026-09-16-Android签名校验空安全编译修复.md` |
 | 9/16 | 子任务详情页进度卡、同级长按排序、层级图标菜单、窄屏视觉回归；见 `docs/2026-09-16-子任务详情页统一改版.md` |
 | 9/16 | GitHub Releases 应用内更新、正式签名、APK 多层校验和发布脚本；见 `docs/2026-09-16-Android应用内更新与正式签名.md` |

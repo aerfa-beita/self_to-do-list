@@ -88,10 +88,7 @@ class NotificationService {
   );
   static const _taskReminderOffset = 10000;
   static const _fullScreenChannelId =
-      'stride_full_screen_reminders_with_sound_v2';
-  static const _fullScreenSound = RawResourceAndroidNotificationSound(
-    'stride_reminder',
-  );
+      'stride_full_screen_reminders_default_sound_v3';
 
   final FlutterLocalNotificationsPlugin _plugin =
       FlutterLocalNotificationsPlugin();
@@ -245,6 +242,28 @@ class NotificationService {
       debugPrint('[notification] 全屏提醒权限申请失败: $error');
       return false;
     }
+  }
+
+  @visibleForTesting
+  static AndroidNotificationDetails androidReminderDetails({
+    required bool fullScreen,
+  }) {
+    return AndroidNotificationDetails(
+      fullScreen ? _fullScreenChannelId : 'reminders',
+      fullScreen ? '全屏任务提醒' : '提醒',
+      channelDescription: fullScreen ? '任务到点与今日任务巡检' : '任务到期提醒',
+      importance: fullScreen ? Importance.max : Importance.high,
+      priority: Priority.high,
+      category: fullScreen ? AndroidNotificationCategory.alarm : null,
+      fullScreenIntent: fullScreen,
+      visibility: fullScreen
+          ? NotificationVisibility.public
+          : NotificationVisibility.private,
+      audioAttributesUsage: fullScreen
+          ? AudioAttributesUsage.alarm
+          : AudioAttributesUsage.notification,
+      playSound: true,
+    );
   }
 
   Future<void> _schtasksCreate(
@@ -405,23 +424,7 @@ class NotificationService {
             )
           : null;
       final details = NotificationDetails(
-        android: AndroidNotificationDetails(
-          fullScreen ? _fullScreenChannelId : 'reminders',
-          fullScreen ? '全屏任务提醒' : '提醒',
-          channelDescription: fullScreen ? '任务到点与今日任务巡检' : '任务到期提醒',
-          importance: fullScreen ? Importance.max : Importance.high,
-          priority: Priority.high,
-          category: fullScreen ? AndroidNotificationCategory.alarm : null,
-          fullScreenIntent: fullScreen,
-          visibility: fullScreen
-              ? NotificationVisibility.public
-              : NotificationVisibility.private,
-          audioAttributesUsage: fullScreen
-              ? AudioAttributesUsage.alarm
-              : AudioAttributesUsage.notification,
-          playSound: true,
-          sound: fullScreen ? _fullScreenSound : null,
-        ),
+        android: androidReminderDetails(fullScreen: fullScreen),
       );
       final androidImpl = _plugin
           .resolvePlatformSpecificImplementation<
@@ -571,20 +574,8 @@ class NotificationService {
       notificationId: id,
       scheduledFor: scheduledTime,
     );
-    const details = NotificationDetails(
-      android: AndroidNotificationDetails(
-        _fullScreenChannelId,
-        '全屏任务提醒',
-        channelDescription: '任务到点与今日任务巡检',
-        importance: Importance.max,
-        priority: Priority.high,
-        category: AndroidNotificationCategory.alarm,
-        fullScreenIntent: true,
-        visibility: NotificationVisibility.public,
-        audioAttributesUsage: AudioAttributesUsage.alarm,
-        playSound: true,
-        sound: _fullScreenSound,
-      ),
+    final details = NotificationDetails(
+      android: androidReminderDetails(fullScreen: true),
     );
     await _plugin.zonedSchedule(
       id,

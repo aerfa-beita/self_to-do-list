@@ -68,7 +68,7 @@ class TodoScreenState extends State<TodoScreen> with WidgetsBindingObserver {
   // 批量选择
   bool _selectMode = false;
   final Set<int> _selectedIds = {};
-  String _smartView = 'inbox';
+  String _smartView = 'active';
   int _todayEffort = 0;
   int _dailyEffortLimit = 8;
   Task? _selectedTask;

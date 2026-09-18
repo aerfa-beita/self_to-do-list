@@ -1,6 +1,6 @@
 ﻿# to-do_list — 项目结构
 
-> 最后更新：2026-09-17
+> 最后更新：2026-09-18
 
 ---
 
@@ -52,7 +52,7 @@ MY_Project/to-do_list/
 │   │   ├── companion_rig_service.dart # 2.5D rig 解析/缓存/锚点
 │   │   ├── reminder_settings_service.dart # 今日巡检开关/间隔/活跃时段本地设置
 │   │   ├── reminder_coordinator.dart  # 任务变化后重排提醒 + 持久化稍后提醒校验
-│   │   └── notification_service.dart # 普通通知 + Android 铃声全屏提醒 + Windows schtasks
+│   │   └── notification_service.dart # 普通通知 + Android 系统声全屏提醒 + Windows schtasks
 │   ├── sync/
 │   │   ├── sync_config.dart
 │   │   ├── sync_gateway.dart
@@ -110,7 +110,7 @@ MY_Project/to-do_list/
         │   ├── MainActivity.kt        # 备份/电池/小部件/全屏权限 + APK 身份校验与系统安装
         │   ├── WidgetTaskStore.kt / WidgetActionReceiver.kt
         │   └── WidgetQuickTaskActivity.kt / WidgetContract.kt # Intent kind 贯穿小部件操作
-        └── res/                      # A6 图标 + 小部件 + 更新路径 + raw/stride_reminder.wav
+        └── res/                      # A6 图标 + 小部件 + 更新路径；raw 铃声暂存但当前不引用
 ```
 
 ## DB 版本历史

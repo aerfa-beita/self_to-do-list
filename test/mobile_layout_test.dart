@@ -239,6 +239,7 @@ void main() {
     expect(find.text('本周'), findsOneWidget);
     expect(find.text('阶段'), findsOneWidget);
     expect(find.text('收件箱'), findsWidgets);
+    expect(find.byKey(const Key('arrangement-week-list')), findsOneWidget);
     expect(find.byKey(const Key('todo-display-mode')), findsNothing);
     expect(find.text('Todo List'), findsNothing);
     expect(tester.takeException(), isNull);

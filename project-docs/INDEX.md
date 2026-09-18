@@ -1,6 +1,6 @@
 ﻿# to-do_list — 项目索引
 
-> 最后更新：2026-09-17
+> 最后更新：2026-09-18
 
 ---
 
@@ -18,6 +18,15 @@ Flutter 桌面端（Windows + Android）备忘录 + Todo List 应用，Material 
 | [README.md](../README.md) | GitHub 首页 |
 | [STRUCTURE.md](STRUCTURE.md) | 目录结构、文件关系、架构图 |
 | [CODE_STATS.md](CODE_STATS.md) | 代码统计 |
+
+## [2026-09-18 Android 全屏通知恢复](../docs/2026-09-18-Android全屏通知恢复.md)
+
+| 检查 | 结果 |
+|------|------|
+| 根因 | Release APK 缺少动态引用的 `stride_reminder`，插件返回 `invalid_sound`，任务提醒无法排程 |
+| 修复 | 使用新 v3 全屏通道和系统默认声音，不再依赖 raw 音频资源 |
+| 范围 | 任务到点、今日巡检和稍后提醒统一复用安全全屏参数；首次安装默认进入本周内容 |
+| 验证 | 提醒专项 7/7、完整回归 89/89；全项目无新增静态问题 |
 
 ## [2026-09-17 稍后提醒持久化与铃声](../docs/2026-09-17-稍后提醒持久化与铃声.md)
 

@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:todo_list/database/database.dart';
@@ -168,6 +169,21 @@ void main() {
     expect(bytes.length, greaterThan(44));
     expect(String.fromCharCodes(bytes.take(4)), 'RIFF');
     expect(String.fromCharCodes(bytes.skip(8).take(4)), 'WAVE');
+  });
+
+  test('full-screen reminders use a safe system sound channel', () {
+    final details = NotificationService.androidReminderDetails(
+      fullScreen: true,
+    );
+    expect(
+      details.channelId,
+      'stride_full_screen_reminders_default_sound_v3',
+    );
+    expect(details.fullScreenIntent, isTrue);
+    expect(details.importance, Importance.max);
+    expect(details.category, AndroidNotificationCategory.alarm);
+    expect(details.playSound, isTrue);
+    expect(details.sound, isNull);
   });
 
   testWidgets('task and daily full-screen reminders fit a mobile viewport', (

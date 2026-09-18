@@ -83,6 +83,18 @@ flutter build apk --release              # apk 在 build/app/outputs/flutter-apk
 
 Android Release 必须使用本地正式签名配置 `android/key.properties`；项目不再回退到调试签名。公开更新通过 `scripts/publish_android_release.ps1` 上传到 GitHub Releases，Token、密钥和密码均不得提交。
 
+Android 正式版本同时递增补丁号和 `versionCode`，例如 `1.3.1+7` → `1.3.2+8`。修改 `pubspec.yaml` 后按以下顺序构建：
+
+```powershell
+cd D:\MY_Project\to-do_list
+flutter pub get
+flutter analyze
+flutter test
+flutter build apk --release --no-pub
+```
+
+APK 输出为 `build/app/outputs/apk/release/app-release.apk`；普通调试构建不递增版本号。
+
 ## ☁️ 启用双端同步
 
 先在 Supabase SQL Editor 执行 `supabase/schema.sql`。当前工作区会自动读取被 Git 忽略的 `assets/config/supabase.json`，普通构建即可启用同步：
